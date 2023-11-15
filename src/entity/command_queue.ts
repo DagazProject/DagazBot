@@ -1,10 +1,10 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { users } from "./users";
-import { command } from "./command";
+import { action } from "./action";
 
 @Entity()
 export class command_queue {
-    @PrimaryColumn()
+    @PrimaryGeneratedColumn()
     id: number;
 
     @Index()
@@ -16,10 +16,10 @@ export class command_queue {
 
     @Index()
     @Column({ nullable: false })
-    command_id: number;
-    @ManyToOne(type => command)
-    @JoinColumn({ name: "command_id" })
-    command: command;
+    action_id: number;
+    @ManyToOne(type => action)
+    @JoinColumn({ name: "action_id" })
+    action: action;
 
     @Column({default: () => "now()", nullable: false})
     created: Date;
