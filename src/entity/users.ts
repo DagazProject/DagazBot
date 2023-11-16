@@ -35,4 +35,8 @@ export class users {
 
     @Column({default: () => "now()", nullable: false})
     updated: Date;
+
+    @Index()
+    @Column({ nullable: true })
+    scheduled: Date;
 }

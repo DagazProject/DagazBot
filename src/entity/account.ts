@@ -26,8 +26,4 @@ export class account {
 
     @Column({ nullable: true })
     deleted: Date;
-
-    @Index()
-    @Column({ nullable: true })
-    scheduled: Date;
 }
