@@ -110,9 +110,13 @@ export class AppService {
   async getMenu(self, callback, curr, next) {
     try {
       const x = await this.service.query(
-        `select a.id as user_id, b.id, b.message, a.chat_id
+        `select a.id as user_id, b.id, a.chat_id,
+                coalesce(c.message, d.message) as message,
+                coalesce(c.locale, d.locale) as locale
          from   users a
          inner  join action b on (b.id = a.action_id and b.type_id = 3)
+         left   join localized_string c on (c.action_id = b.id and c.locale = a.locale)
+         inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
          where  not a.scheduled is null
          order  by a.scheduled
          limit  1`);
@@ -120,10 +124,12 @@ export class AppService {
          const chatId = x[0].chat_id;
          const text = x[0].message;
          const y = await this.service.query(
-          `select a.id, a.message, a.order_num
+          `select a.id, a.order_num,
+                  coalesce(c.message, d.message) as message
            from   action a
-           where  a.parent_id = $1 and a.type_id = 4
-           order  by a.order_num`, [x[0].id]);
+           inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
+           where  a.parent_id = $2 and a.type_id = 4
+           order  by a.order_num`, [x[0].locale, x[0].id]);
          let menu = [];
          for (let i = 0; i < y.length; i++) {
              menu.push([{
@@ -149,6 +155,33 @@ export class AppService {
          }
       }
       callback(self, next, null, null, null);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async chooseItem(username, data) {
+    try {
+      const x = await this.service.query(
+        `select a.id
+         from   users a
+         where  a.username = $1`, [username]);
+      if (!x && x.length == 0) return;
+      const y = await this.service.query(
+        `select x.id
+         from ( select a.id, row_number() over (order by a.order_num) as rn
+                from   action a
+                where  a.parent_id = $1) x
+         where  x.rn = 1`, [data]);
+      if (!y && y.length == 0) return;
+      await this.service.createQueryBuilder("users")
+      .update(users)
+      .set({ 
+          updated: new Date(),
+          action_id: y[0].id
+      })
+      .where("id = :id", {id: x[0].id})
+      .execute();
     } catch (error) {
       console.error(error);
     }

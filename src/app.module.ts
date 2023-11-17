@@ -52,6 +52,7 @@ export class AppModule {
         this.appService.getMenu(this, this.menuCallback, STATE.MENU, STATE.QEUE);
         return true;
     }
+    // TODO:
 
     return true;
   }
@@ -69,19 +70,27 @@ export class AppModule {
 
   startCallback(self: AppModule, token: string) {
     bot = new TelegramBot(token, {polling: true});
-    bot.on('text', (msg) => {
+    bot.on('text', async msg => {
       try {
         const chatId = msg.chat.id;
         const s = msg.text + ' ';
         if (s.startsWith('/start ')) {
-            self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
+            await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
         } else {
-            bot.sendMessage(chatId, msg.text);
+//          await bot.sendMessage(chatId, msg.text);
         }
       } catch (error) {
         console.error(error);
       }
-      console.log(msg);
+//    console.log(msg);
+    });
+    bot.on('callback_query', async msg => {
+      try {
+        await self.appService.chooseItem(msg.from.username, msg.data);
+      } catch (error) {
+        console.error(error);
+      }
+//    console.log(msg);
     });
   }
 }

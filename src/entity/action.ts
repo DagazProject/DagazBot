@@ -43,9 +43,6 @@ export class action {
     @JoinColumn({ name: "paramtype_id" })
     paramtype: param_type;
 
-    @Column({ nullable: true,  type: "text" })
-    message: string;
-
     @Column({ nullable: false, type: "integer" })
     order_num: number;
 }

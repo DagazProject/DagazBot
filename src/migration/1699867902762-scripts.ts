@@ -26,27 +26,53 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action_type(id, name) values(12, 'Связать пользователя с учётной записью')`); // Сформировать URL перехода с авторизацией
         await queryRunner.query(`insert into action_type(id, name) values(13, 'Перейти к игре')`); // Сформировать URL для перехода на игру по SID (с авторизацией)
 
-        await queryRunner.query(`insert into action(id, script_id, type_id, message, order_num) values(201, 2, 3, 'Для регистрации на DagazServer выберите одно из следующих действий', 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, order_num) values(202, 2, 201, 4, 'Создать учётную запись', 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, order_num) values(203, 2, 201, 4, 'Подключить учётную запись', 2)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(204, 2, 202, 2, 'Введите логин:', 2, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(205, 2, 202, 2, 'Введите пароль:', 3, 2)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(206, 2, 202, 2, 'Введите EMail (не обязательно):', 4, 3)`);
+        await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(201, 2, 3, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(202, 2, 201, 4, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(203, 2, 201, 4, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(204, 2, 202, 2, 2, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(205, 2, 202, 2, 4, 3)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(207, 2, 202, 10, 4)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(208, 2, 207, 12, 5, 1)`); // 201
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(209, 2, 208, 1, 'Для входа на DagazServer перейдите по ссылке:', 5, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, follow_to, order_num) values(210, 1, 207, 1, 'На DagazServer уже существует учётная запись с таким именем', 201, 2)`); // 409
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(211, 2, 203, 2, 'Введите логин:', 2, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(212, 2, 203, 2, 'Введите пароль:', 3, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(209, 2, 208, 1, 5, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(210, 1, 207, 1, 201, 2)`); // 409
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id paramtype_id, order_num) values(211, 2, 203, 2, 2, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(212, 2, 203, 2, 3, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(213, 2, 203, 11, 3)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(214, 2, 213, 12, 5, 1)`); // 200
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(215, 2, 214, 1, 'Для входа на DagazServer перейдите по ссылке:', 5, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, follow_to, order_num) values(216, 1, 213, 1, 'Неверный логин или пароль', 201, 2)`); // 401
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(215, 2, 214, 1, 5, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(216, 1, 213, 1, 201, 2)`); // 401
         await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(101, 1, 11, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(102, 1, 101, 12, 5, 1)`); // 200
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(103, 1, 102, 13, 5, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, paramtype_id, order_num) values(104, 1, 102, 1, 'Для входа в игру перейдите по ссылке:', 5, 2)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, message, follow_to, order_num) values(105, 1, 101, 1, 'Не удалось авторизоваться на DagazServer', 201, 2)`); // 409
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(104, 1, 102, 1, 5, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(105, 1, 101, 1, 201, 2)`); // 409
+
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(201, 'ru', 'Выберите действие для регистрации на DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(201, 'en', 'Choose an action to register on the DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(202, 'ru', 'Создать учётную запись')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(202, 'en', 'Create an account')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(203, 'ru', 'Подключить учётную запись')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(203, 'en', 'Connect your account')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(204, 'ru', 'Введите логин:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(204, 'en', 'Enter Login:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'ru', 'Введите EMail (не обязательно):')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'en', 'Enter EMail (optionally):')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'ru', 'Перейдите по ссылке на DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'en', 'Follow the link to the DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'ru', 'Учётная запись с таким именем уже существует')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'en', 'An account with the same name already exists')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(211, 'ru', 'Введите логин:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(211, 'en', 'Enter Login:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(212, 'ru', 'Введите пароль:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(212, 'en', 'Enter Password:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(215, 'ru', 'Перейдите по ссылке на DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(215, 'en', 'Follow the link to the DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(216, 'ru', 'Неверный логин или пароль')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(216, 'en', 'Wrong login or password')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(104, 'ru', 'Перейдите по ссылке для вход в игру')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(104, 'en', 'Follow the link to enter the game')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(105, 'ru', 'Не удалось авторизоваться на DagazServer')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(105, 'en', 'Failed to login on the DagazServer')`);
 
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(1, 1, 201, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(2, 1, 409, 2)`);
