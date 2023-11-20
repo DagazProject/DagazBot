@@ -7,4 +7,7 @@ export class script {
 
     @Column({ nullable: false, type: "varchar", length: 100 })
     name: string;
+
+    @Column({ nullable: true, type: "varchar", length: 10 })
+    command: string;
 }

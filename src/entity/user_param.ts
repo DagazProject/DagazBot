@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn } from "typeorm";
 import { param_type } from "./param_type";
-import { account } from "./account";
+import { users } from "./users";
 
 @Entity()
 export class user_param {
@@ -16,10 +16,10 @@ export class user_param {
 
     @Index()
     @Column({ nullable: false })
-    account_id: number;
-    @ManyToOne(type => account)
-    @JoinColumn({ name: "account_id" })
-    account: account;
+    user_id: number;
+    @ManyToOne(type => users)
+    @JoinColumn({ name: "user_id" })
+    user: users;
 
     @Column({ nullable: false,  type: "text" })
     value: string;

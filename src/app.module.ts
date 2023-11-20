@@ -11,14 +11,16 @@ const TIMEOUT = 1000;
 const STATE = {
   WAIT: 1,
   QEUE: 2,
-  MENU: 3
+  MENU: 3,
+  SETV: 4,
+  SEND: 5
 };
 
 let app = null;
 let bot = null;
 
-let run = function() {
-  if (app.exec()) {
+let run = async function() {
+  if (await app.exec()) {
       setTimeout(run, TIMEOUT);
   }
 }
@@ -42,26 +44,39 @@ export class AppModule {
     await this.appService.getToken(this, this.startCallback);
   }
 
-  exec() {
+  async exec() {
     if (this.state == STATE.QEUE) {
         this.state = STATE.WAIT;
-        this.appService.getActions(this, this.execCallback, STATE.MENU);
+        await this.appService.getActions(this, this.execCallback, STATE.MENU);
         return true;
     } else if (this.state == STATE.MENU) {
         this.state = STATE.WAIT;
-        this.appService.getMenu(this, this.menuCallback, STATE.MENU, STATE.QEUE);
+        await this.appService.getMenu(this, this.menuCallback, this.execCallback, STATE.SETV);
         return true;
+    } else if (this.state == STATE.SETV) {
+        this.state = STATE.WAIT;
+        await this.appService.setParams(this, this.execCallback, STATE.SEND);
+        return true;
+    } else if (this.state == STATE.SEND) {
+      this.state = STATE.WAIT;
+      await this.appService.sendMessages(this, this.execCallback, STATE.QEUE);
+      return true;
     }
     // TODO:
 
     return true;
   }
 
-  menuCallback(self: AppModule, state: number, chatId: number, text: string, msg) {
+  async sendCallback(chatId: number, text: string) {
     if (chatId) {
-        bot.sendMessage(chatId, text, msg);
+        await bot.sendMessage(chatId, text);
     }
-    self.state = state;
+  }
+
+  async menuCallback(chatId: number, text: string, msg) {
+    if (chatId) {
+        await bot.sendMessage(chatId, text, msg);
+    }
   }
 
   execCallback(self: AppModule, state: number) {
