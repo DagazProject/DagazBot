@@ -13,11 +13,14 @@ const STATE = {
   QEUE: 2,
   MENU: 3,
   SETV: 4,
-  SEND: 5
+  GETV: 5,
+  SEND: 6
 };
 
 let app = null;
 let bot = null;
+
+let commands = [];
 
 let run = async function() {
   if (await app.exec()) {
@@ -53,17 +56,19 @@ export class AppModule {
         this.state = STATE.WAIT;
         await this.appService.getMenu(this, this.menuCallback, this.execCallback, STATE.SETV);
         return true;
+    } else if (this.state == STATE.GETV) {
+        this.state = STATE.WAIT;
+        await this.appService.getParams(this, this.sendCallback, this.execCallback, STATE.SETV);
+        return true;
     } else if (this.state == STATE.SETV) {
         this.state = STATE.WAIT;
         await this.appService.setParams(this, this.execCallback, STATE.SEND);
         return true;
     } else if (this.state == STATE.SEND) {
       this.state = STATE.WAIT;
-      await this.appService.sendMessages(this, this.execCallback, STATE.QEUE);
+      await this.appService.sendMessages(this, this.sendCallback, this.execCallback, STATE.QEUE);
       return true;
     }
-    // TODO:
-
     return true;
   }
 
@@ -88,12 +93,28 @@ export class AppModule {
     bot.on('text', async msg => {
       try {
         const chatId = msg.chat.id;
-        const s = msg.text + ' ';
-        if (s.startsWith('/start ')) {
-            await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
-        } else {
-//          await bot.sendMessage(chatId, msg.text);
+        let cmd = null;
+        const r = msg.text.match(/\/(\w+)/);
+        if (r) {
+            cmd = r[1];
         }
+        if (cmd !== null) {
+            if (cmd == 'start') {
+              commands = await self.appService.getCommands();
+              await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
+              return;
+            }
+            for (let i = 0; i < commands.length; i++) {
+              if (commands[i].name == cmd) {
+                  await self.appService.setAction(msg.from.username, commands[i].action);
+                  return;
+              }
+            }
+        }
+        if (await self.appService.saveParam(msg.from.username, msg.text)) return;
+        // TODO: Chat
+
+
       } catch (error) {
         console.error(error);
       }

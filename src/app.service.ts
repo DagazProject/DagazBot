@@ -27,6 +27,47 @@ export class AppService {
     }
   }
 
+  async getCommands() {
+    try {
+      let r = [];
+      const x = await this.service.query(
+        `select x.command, x.action_id
+         from ( select a.command, b.id as action_id,
+                       row_number() over (partition by a.id order by b.order_num) rn
+                from   script a
+                inner  join action b on (b.script_id = a.id and b.parent_id is null)
+                where  not a.command is null ) x
+         where  x.rn = 1`);
+         if (x && x.length > 0) {
+             for (let i = 0; i < x.length; i++) {
+                 r.push({
+                    name: x[i].command,
+                    action: x[i].action_id
+                 });
+             }
+         }
+      return r;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async setAction(username, action) {
+    try {
+      await this.service.createQueryBuilder("users")
+      .update(users)
+      .set({ 
+          action_id: action,
+          updated: new Date(),
+          scheduled: new Date()
+      })
+      .where("username = :name", {name: username})
+      .execute();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   async getParamId(user_id: number, type_id: number): Promise<number> {
     const x = await this.service.query(
       `select id
@@ -219,6 +260,7 @@ export class AppService {
       await this.service.createQueryBuilder("users")
       .update(users)
       .set({ 
+          scheduled: new Date(),
           updated: new Date(),
           action_id: y[0].id
       })
@@ -259,38 +301,40 @@ export class AppService {
          where  not a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
-      for (let i = 0; i < x.length; i++) {
-         const id = await this.getParamId(x[0].user_id, x[i].paramtype_id);
-         if (id) {
-            await this.service.createQueryBuilder("user_param")
-            .update(user_param)
-            .set({ 
-                created: new Date(),
-                value: x[i].message
-            })
-            .where("id = :id", {id: id})
-            .execute();
-           } else {
-            await this.service.createQueryBuilder("user_param")
-            .insert()
-            .into(user_param)
-            .values({
-              type_id: x[i].paramtype_id,
-              user_id: x[i].user_id,
-              value: x[i].message
-            })
-            .execute();
-         }
-         const action = await this.getNextAction(x[i].id);
-         await this.service.createQueryBuilder("users")
-         .update(users)
-         .set({ 
-             updated: new Date(),
-             action_id: action
-         })
-         .where("id = :id", {id: x[i].id})
-         .execute();
+      if (x && x.length > 0) {
+        for (let i = 0; i < x.length; i++) {
+          const id = await this.getParamId(x[0].user_id, x[i].paramtype_id);
+          if (id) {
+             await this.service.createQueryBuilder("user_param")
+             .update(user_param)
+             .set({ 
+                 created: new Date(),
+                 value: x[i].message
+             })
+             .where("id = :id", {id: id})
+             .execute();
+            } else {
+             await this.service.createQueryBuilder("user_param")
+             .insert()
+             .into(user_param)
+             .values({
+               type_id: x[i].paramtype_id,
+               user_id: x[i].user_id,
+               value: x[i].message
+             })
+             .execute();
+          }
+          const action = await this.getNextAction(x[i].id);
+          await this.service.createQueryBuilder("users")
+          .update(users)
+          .set({ 
+              scheduled: action ? new Date() : null,
+              updated: new Date(),
+              action_id: action
+          })
+          .where("id = :id", {id: x[i].id})
+          .execute();
+       }
       }
       callback(self, next);
     } catch (error) {
@@ -298,7 +342,7 @@ export class AppService {
     }
   }
 
-  async sendMessages(self, callback, next) {
+  async sendMessages(self, send, callback, next) {
     try {
       const x = await this.service.query(
         `select a.chat_id, b.id, coalesce(c.message, d.message) as message
@@ -310,20 +354,98 @@ export class AppService {
          where  not a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
-      for (let i = 0; i < x.length; i++) {
-        await callback(x[i].chatId, x[i].message);
-        const action = await this.getNextAction(x[i].id);
-        await this.service.createQueryBuilder("users")
-        .update(users)
-        .set({ 
-            updated: new Date(),
-            action_id: action
-        })
-        .where("id = :id", {id: x[i].id})
-        .execute();
+      if (x && x.length > 0) {
+        for (let i = 0; i < x.length; i++) {
+          await send(x[i].chatId, x[i].message);
+          const action = await this.getNextAction(x[i].id);
+          await this.service.createQueryBuilder("users")
+          .update(users)
+          .set({ 
+              scheduled: action ? new Date() : null,
+              updated: new Date(),
+              action_id: action
+          })
+          .where("id = :id", {id: x[i].id})
+          .execute();
+        }
       }
       callback(self, next);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async getParams(self, send, callback, next) {
+    try {
+      const x = await this.service.query(
+        `select a.chat_id, b.id, b.paramtype_id, coalesce(c.message, d.message) as message
+         from   users a
+         inner  join action b on (b.id = a.action_id and b.type_id = 2)
+         left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+         left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+         inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+         where  not a.scheduled < now() and a.wait_for is null
+         order  by a.scheduled
+         limit  100`);
+      if (x && x.length > 0) {
+         for (let i = 0; i < x.length; i++) {
+            await send(x[i].chatId, x[i].message);
+            await this.service.createQueryBuilder("users")
+            .update(users)
+            .set({ 
+                wait_for: x[i].paramtype_id,
+                updated: new Date(),
+            })
+            .where("id = :id", {id: x[i].id})
+            .execute();
+         }
+      }
+      callback(self, next);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async saveParam(username, data): Promise<boolean> {
+    try {
+      const x = await this.service.query(
+        `select a.id as user_id, a.wait_for, b.id
+         from   users a
+         left   join user_param b on (b.user_id = a.id and b.type_id = a.wait_for)
+         where  a.username = $1 and not a.wait_for is null`, [username]);
+      if (!x || x.length == 0) return false;
+      const action = await this.getNextAction(x[0].user_id);
+      if (x[0].id) {
+        await this.service.createQueryBuilder("user_param")
+        .update(user_param)
+        .set({ 
+            created: new Date(),
+            value: data
+           })
+        .where("id = :id", {id: x[0].id})
+        .execute();
+      } else {
+        await this.service.createQueryBuilder("user_param")
+        .insert()
+        .into(user_param)
+        .values({
+          type_id: x[0].wait_for,
+          user_id: x[0].user_id,
+          value: data
+        })
+        .execute();
+      }
+      await this.service.createQueryBuilder("users")
+      .update(users)
+      .set({ 
+          wait_for: null,
+          scheduled: action ? new Date() : null,
+          updated: new Date(),
+          action_id: action
+      })
+      .where("id = :id", {id: x[0].user_id})
+      .execute();
+      return true;
     } catch (error) {
       console.error(error);
     }
