@@ -14,7 +14,8 @@ const STATE = {
   MENU: 3,
   SETV: 4,
   GETV: 5,
-  SEND: 6
+  INFO: 6,
+  SEND: 7
 };
 
 let app = null;
@@ -54,7 +55,7 @@ export class AppModule {
         return true;
     } else if (this.state == STATE.MENU) {
         this.state = STATE.WAIT;
-        await this.appService.getMenu(this, this.menuCallback, this.execCallback, STATE.SETV);
+        await this.appService.getMenu(this, this.menuCallback, this.execCallback, STATE.GETV);
         return true;
     } else if (this.state == STATE.GETV) {
         this.state = STATE.WAIT;
@@ -62,12 +63,16 @@ export class AppModule {
         return true;
     } else if (this.state == STATE.SETV) {
         this.state = STATE.WAIT;
-        await this.appService.setParams(this, this.execCallback, STATE.SEND);
+        await this.appService.setParams(this, this.execCallback, STATE.INFO);
+        return true;
+    } else if (this.state == STATE.INFO) {
+        this.state = STATE.WAIT;
+        await this.appService.sendInfo(this, this.sendCallback, this.execCallback, STATE.SEND);
         return true;
     } else if (this.state == STATE.SEND) {
-      this.state = STATE.WAIT;
-      await this.appService.sendMessages(this, this.sendCallback, this.execCallback, STATE.QEUE);
-      return true;
+        this.state = STATE.WAIT;
+        await this.appService.sendMessages(this, this.sendCallback, this.execCallback, STATE.QEUE);
+        return true;
     }
     return true;
   }
@@ -106,15 +111,13 @@ export class AppModule {
             }
             for (let i = 0; i < commands.length; i++) {
               if (commands[i].name == cmd) {
-                  await self.appService.setAction(msg.from.username, commands[i].action);
+                  await self.appService.addAction(msg.from.username, commands[i].action);
                   return;
               }
             }
         }
         if (await self.appService.saveParam(msg.from.username, msg.text)) return;
-        // TODO: Chat
-
-
+        await self.appService.saveMessage(msg.from.username, msg.message_id, msg.text);
       } catch (error) {
         console.error(error);
       }

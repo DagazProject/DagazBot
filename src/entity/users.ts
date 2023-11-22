@@ -26,13 +26,6 @@ export class users {
     wait: param_type;
 
     @Index()
-    @Column({ nullable: true })
-    last_message: number;
-    @ManyToOne(type => message)
-    @JoinColumn({ name: "last_message" })
-    message: message;
-
-    @Index()
     @Unique(["username"])
     @Column({ nullable: false,  type: "varchar", length: 100 })
     username: string;

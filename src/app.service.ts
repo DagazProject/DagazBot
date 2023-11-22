@@ -3,6 +3,7 @@ import { users } from './entity/users';
 import { Repository } from 'typeorm';
 import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
+import { message } from './entity/message';
 
 @Injectable()
 export class AppService {
@@ -52,20 +53,15 @@ export class AppService {
     }
   }
 
-  async setAction(username, action) {
-    try {
-      await this.service.createQueryBuilder("users")
-      .update(users)
-      .set({ 
-          action_id: action,
-          updated: new Date(),
-          scheduled: new Date()
-      })
-      .where("username = :name", {name: username})
-      .execute();
-    } catch (error) {
-      console.error(error);
+  async getUserId(username: string): Promise<number> {
+    const x = await this.service.query(
+      `select id
+       from   users a
+       where  a.username = $1`, [username]);
+    if (!x || x.length == 0) {
+       return null;
     }
+    return x[0].id;
   }
 
   async getParamId(user_id: number, type_id: number): Promise<number> {
@@ -77,6 +73,22 @@ export class AppService {
        return null;
     }
     return x[0].id;
+  }
+
+  async addAction(username, action) {
+    try {
+      const id = await this.getUserId(username);
+      await this.service.createQueryBuilder("command_queue")
+      .insert()
+      .into(command_queue)
+      .values({
+        user_id: id,
+        action_id: action
+      })
+      .execute();
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async createUser(login: string, chat: number, first_name: string, last_name: string, locale: string) {
@@ -199,13 +211,11 @@ export class AppService {
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
-         where  not a.scheduled < now()
+         where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
       if (x && x.length > 0) {
          for (let i = 0; i < x.length; i++) {
-              const chatId = x[i].chat_id;
-              const text = x[i].message;
               const y = await this.service.query(
              `select a.id, a.order_num,
                      coalesce(c.message, d.message) as message
@@ -229,7 +239,7 @@ export class AppService {
               .where("id = :id", {id: x[i].user_id})
               .execute();
               if (menu.length > 0) {
-                 await menucallback(chatId, text, {
+                 await menucallback(x[i].chat_id, x[i].message, {
                    reply_markup: {
                      inline_keyboard: menu
                    }
@@ -298,7 +308,7 @@ export class AppService {
          from   users a
          inner  join action b on (b.id = a.action_id and b.type_id = 5)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
-         where  not a.scheduled < now()
+         where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
       if (x && x.length > 0) {
@@ -342,7 +352,7 @@ export class AppService {
     }
   }
 
-  async sendMessages(self, send, callback, next) {
+  async sendInfo(self, send, callback, next) {
     try {
       const x = await this.service.query(
         `select a.chat_id, b.id, coalesce(c.message, d.message) as message
@@ -351,12 +361,12 @@ export class AppService {
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
-         where  not a.scheduled < now()
+         where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
       if (x && x.length > 0) {
         for (let i = 0; i < x.length; i++) {
-          await send(x[i].chatId, x[i].message);
+          await send(x[i].chat_id, x[i].message);
           const action = await this.getNextAction(x[i].id);
           await this.service.createQueryBuilder("users")
           .update(users)
@@ -378,21 +388,23 @@ export class AppService {
   async getParams(self, send, callback, next) {
     try {
       const x = await this.service.query(
-        `select a.chat_id, b.id, b.paramtype_id, coalesce(c.message, d.message) as message
+        `select a.chat_id, a.id, b.paramtype_id, coalesce(c.message, d.message) as message
          from   users a
          inner  join action b on (b.id = a.action_id and b.type_id = 2)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
-         where  not a.scheduled < now() and a.wait_for is null
+         where  a.scheduled < now() and a.wait_for is null
          order  by a.scheduled
          limit  100`);
       if (x && x.length > 0) {
          for (let i = 0; i < x.length; i++) {
-            await send(x[i].chatId, x[i].message);
+            console.log('chat_id = ' + x[i].chat_id + ', message = ' + x[i].message);
+            await send(x[i].chat_id, x[i].message);
             await this.service.createQueryBuilder("users")
             .update(users)
             .set({ 
+                scheduled: null,
                 wait_for: x[i].paramtype_id,
                 updated: new Date(),
             })
@@ -446,6 +458,85 @@ export class AppService {
       .where("id = :id", {id: x[0].user_id})
       .execute();
       return true;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async saveMessage(username: string, id: number, data: string) {
+    try {
+      const x = await this.service.query(
+        `select a.id, coalesce(b.value, 'en') as locale
+         from   users a
+         left   join user_param b on (b.user_id = a.id and type_id = 7)
+         where  a.username = $1`, [username]);
+      if (!x || x.length == 0) return;
+      await this.service.createQueryBuilder("message")
+      .insert()
+      .into(message)
+      .values({
+        user_id: x[0].id,
+        locale: x[0].locale,
+        message_id: id,
+        data: data
+      })
+      .execute();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async sendMessages(self, send, callback, next) {
+    try {
+      const x = await this.service.query(
+        `select a.id, a.send_to, a.locale, a.data, b.is_admin
+         from   message a
+         left   join users b on (b.id = a.user_id)
+         where  a.scheduled < now()
+         order  by a.scheduled
+         limit  1`);
+      if (x && x.length > 0) {
+        if (x[0].send_to) {
+            const y = await this.service.query(
+              `select a.chat_id
+               from   users a
+               where  a.id = $1`, [x[0].send_to]);
+               if (y && y.length > 0) {
+                  await send(y[0].chat_id, x[0].data);
+               }
+        } else {
+            if (x[0].is_admin) {
+                const y = await this.service.query(
+                  `select a.chat_id
+                   from   users a
+                   left   join user_param b on (b.user_id = a.id and type_id = 7)
+                   where  coalesce(b.value, 'en') = $1 `, [x[0].locale]);
+                if (y && y.length > 0) {
+                   for (let i = 0; i < y.length; i++) {
+                    await send(y[i].chat_id, x[0].data);
+                  }
+                }
+            } else {
+                const y = await this.service.query(
+                  `select a.chat_id
+                   from   users a
+                   where  a.is_admin`);
+                if (y && y.length > 0) {
+                   for (let i = 0; i < y.length; i++) {
+                     await send(y[i].chat_id, x[0].data);
+                   }
+                }
+            }
+        }
+        await this.service.createQueryBuilder("message")
+        .update(message)
+        .set({ 
+            scheduled: null
+        })
+        .where("id = :id", {id: x[0].id})
+        .execute();
+      }
+      callback(self, next);
     } catch (error) {
       console.error(error);
     }

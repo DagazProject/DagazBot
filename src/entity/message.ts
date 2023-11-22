@@ -30,6 +30,16 @@ export class message {
     @Column({ type: "varchar", length: 5 })
     locale: string;
 
+    @Column({ type: "bigint", nullable: false })
+    message_id: number;
+
     @Column({default: () => "now()", nullable: false})
     event_time: Date;
+
+    @Index()
+    @Column({default: () => "now()", nullable: true})
+    scheduled: Date;
+
+    @Column({ type: "text", nullable: false})
+    data: string;
 }
