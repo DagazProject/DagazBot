@@ -94,7 +94,6 @@ export class scripts1699867902762 implements MigrationInterface {
 
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(1, 1, 2, 'name')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(2, 1, 2, 'username')`);
-        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(3, 1, 3, 'password')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(4, 1, 4, 'email')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(5, 2, 2, 'username')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(6, 2, 3, 'password')`);

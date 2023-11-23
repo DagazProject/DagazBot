@@ -14,13 +14,6 @@ export class response {
     @JoinColumn({ name: "request_id" })
     request: request;
 
-    @Index()
-    @Column({ nullable: true })
-    action_id: number;
-    @ManyToOne(type => action)
-    @JoinColumn({ name: "action_id" })
-    action: action;
-
     @Column({ nullable: false, type: "integer" })
     result_code: string;
 
