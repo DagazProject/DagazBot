@@ -18,7 +18,7 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into script(id, name, command) values(3, 'Переключение в английскую локаль', 'en')`);
         await queryRunner.query(`insert into script(id, name, command) values(4, 'Переключение в русскую локаль', 'ru')`);
 
-        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(1, 2, '/users', 'POST')`); // name, username, password, email -> 201 (TOKEN), 409
+        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(1, 2, '/auth/user', 'POST')`); // name, username, password, email -> 201 (TOKEN), 409
         await queryRunner.query(`insert into request(id, server_id, url, request_type) values(2, 2, '/auth/login', 'POST')`); // username, password -> 200 (TOKEN), 401
         await queryRunner.query(`insert into request(id, server_id, url, request_type) values(3, 2, '/session/notify', 'GET')`); // -> 200 [SID]
 
@@ -66,8 +66,10 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(203, 'en', 'Connect your account')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(204, 'ru', 'Введите логин:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(204, 'en', 'Enter Login:')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'ru', 'Введите EMail (не обязательно):')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'en', 'Enter EMail (optionally):')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'ru', 'Введите пароль:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'en', 'Enter Password:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'ru', 'Введите EMail (не обязательно):')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'en', 'Enter EMail (optionally):')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'ru', 'Перейдите по ссылке на DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'en', 'Follow the link to the DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'ru', 'Учётная запись с таким именем уже существует')`);
