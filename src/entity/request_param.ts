@@ -15,7 +15,7 @@ export class request_param {
     request: request;
 
     @Index()
-    @Column({ nullable: false })
+    @Column({ nullable: true })
     paramtype_id: number;
     @ManyToOne(type => param_type)
     @JoinColumn({ name: "paramtype_id" })
@@ -23,4 +23,7 @@ export class request_param {
 
     @Column({ nullable: true, type: "varchar", length: 30 })
     param_name: string;
+
+    @Column({ nullable: true, type: "varchar", length: 30 })
+    param_value: string;
 }

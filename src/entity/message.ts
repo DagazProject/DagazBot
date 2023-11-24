@@ -33,6 +33,12 @@ export class message {
     @Column({ type: "bigint", nullable: false })
     message_id: number;
 
+    @Column({ nullable: true })
+    sid: number;
+
+    @Column({ nullable: true })
+    turn: number;
+
     @Column({default: () => "now()", nullable: false})
     event_time: Date;
 

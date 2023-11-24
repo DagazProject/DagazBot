@@ -1,17 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpService, Inject, Injectable } from '@nestjs/common';
 import { users } from './entity/users';
 import { Repository } from 'typeorm';
 import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
 import { message } from './entity/message';
+import { async } from 'rxjs/internal/scheduler/async';
 
 @Injectable()
 export class AppService {
 
   constructor(
     @Inject('USERS_REPOSITORY')
-    private readonly service: Repository<users>
-  ) {}  
+    private readonly service: Repository<users>,
+    private httpService: HttpService
+    ) {}  
 
   async getToken(self, callback) {
     try {
@@ -548,7 +550,56 @@ export class AppService {
     }
   }
 
-  async httpRequest(self, http, callback, next) {
+  async parseResponse(userId, actionId, result, response) {
+    if (result.params) {
+      for (let i = 0; i < result.params.length; i++) {
+        if (response.data[0][result.params[i].name]) {
+            await this.setParamValue(userId, result.params[i].code, response.data[0][result.params[i].name]);
+        }
+     }
+    }
+    await this.setNextAction(userId, actionId, result.num);
+  }
+
+  async http(userId, requestId, actionId, type, url, body) {
+    if (type == 'GET') {
+        this.httpService.get(url)
+        .subscribe(async response => {
+          const params = await this.getResponse(requestId, response.status);
+          if (params) {
+             await this.parseResponse(userId, actionId, response, params);
+          } else {
+             console.info(response);
+          }
+        }, async error => {
+          const params = await this.getResponse(requestId, error.response.status);
+          if (params) {
+              await this.parseResponse(userId, actionId, error.response, params);
+          } else {
+            console.error(error);
+          }
+        });
+    } else {
+      this.httpService.post(url, body)
+      .subscribe(async response => {
+        const params = await this.getResponse(requestId, response.status);
+        if (params) {
+          await this.parseResponse(userId, actionId, response, params);
+        } else {
+          console.info(response);
+        }
+      }, async error => {
+        const params = await this.getResponse(requestId, error.response.status);
+        if (params) {
+          await this.parseResponse(userId, actionId, error.response, params);
+        } else {
+          console.error(error);
+        }
+      });
+    }
+  }
+
+  async httpRequest(self, callback, next) {
     try {
       const x = await this.service.query(
         `select a.id as user_id, d.id as request_id, b.id as action_id, d.request_type,
@@ -573,7 +624,7 @@ export class AppService {
               body[y[i].param_name] = y[i].value;
             }
          }
-         await http(self, x[0].user_id, x[0].request_id, x[0].action_id, x[0].request_type, x[0].url, body);
+         await this.http(x[0].user_id, x[0].request_id, x[0].action_id, x[0].request_type, x[0].url, body);
       }
       callback(self, next);
     } catch (error) {

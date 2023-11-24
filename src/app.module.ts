@@ -1,12 +1,10 @@
-import { Module } from '@nestjs/common';
+import { HttpModule, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { appProvider } from './app.provider';
-import { async } from 'rxjs/internal/scheduler/async';
 
 const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
 
 const TIMEOUT = 1000;
 
@@ -33,7 +31,7 @@ let run = async function() {
 }
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [HttpModule, DatabaseModule],
   controllers: [AppController],
   providers: [...appProvider, AppService],
 })
@@ -78,53 +76,10 @@ export class AppModule {
         return true;
     } else if (this.state == STATE.HTTP) {
       this.state = STATE.WAIT;
-      await this.appService.httpRequest(this, this.httpCallback, this.execCallback, STATE.QEUE);
+      await this.appService.httpRequest(this, this.execCallback, STATE.QEUE);
       return true;
     }
     return true;
-  }
-
-  async parseResponse(userId, actionId, result, response) {
-    for (let i = 0; i < result.params.length; i++) {
-       await this.appService.setParamValue(userId, result.params[i].code, response.data[0][result.params[i].name]);
-    }
-    await this.appService.setNextAction(userId, actionId, result.num);
-  }
-
-  async httpCallback(self: AppModule, userId: number, requestId: number, actionId: number, type: string, url: string, body: string) {
-    if (type == 'GET') {
-        axios.get(url).then(async function (response) {
-           const params = await self.appService.getResponse(requestId, response.status);
-           if (params) {
-              await self.parseResponse(userId, actionId, response, params);
-           } else {
-              console.info(response);
-           }
-        }).catch(async function (error) {
-          const params = await self.appService.getResponse(requestId, error.response.status);
-          if (params) {
-              await self.parseResponse(userId, actionId, error.response, params);
-          } else {
-            console.error(error);
-          }
-        });
-    } else if (type == 'POST') {
-        axios.post(url, body).then(async function (response) {
-           const params = await self.appService.getResponse(requestId, response.status);
-           if (params) {
-            await self.parseResponse(userId, actionId, response, params);
-           } else {
-             console.info(response);
-           }
-        }).catch(async function (error) {
-           const params = await self.appService.getResponse(requestId, error.response.status);
-           if (params) {
-            await self.parseResponse(userId, actionId, error.response, params);
-           } else {
-             console.error(error);
-           }
-         });
-     }
   }
 
   async sendCallback(chatId: number, text: string) {

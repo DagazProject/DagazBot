@@ -20,13 +20,14 @@
       "test:e2e": "jest --config ./test/jest-e2e.json"
    },
    "dependencies": {
+      "@nestjs/axios": "^3.0.1",
       "@nestjs/common": "^6.10.14",
       "@nestjs/core": "^6.10.14",
       "@nestjs/jwt": "^6.1.2",
       "@nestjs/passport": "^6.2.0",
       "@nestjs/platform-express": "^6.10.14",
       "@nestjs/swagger": "^4.6.1",
-      "axios": "^1.6.1",
+      "axios": "^1.6.2",
       "fastify-swagger": "^3.4.0",
       "mysql": "^2.14.1",
       "node-telegram-bot-api": "0.61.0",
