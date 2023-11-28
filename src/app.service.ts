@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
 import { message } from './entity/message';
-import { async } from 'rxjs/internal/scheduler/async';
+
+const BOT_DEVICE = 'telegram';
 
 @Injectable()
 export class AppService {
@@ -219,8 +220,7 @@ export class AppService {
       if (x && x.length > 0) {
          for (let i = 0; i < x.length; i++) {
               const y = await this.service.query(
-             `select a.id, a.order_num,
-                     coalesce(c.message, d.message) as message
+             `select a.id, a.order_num, c.message
               from   action a
               inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
               where  a.parent_id = $2 and a.type_id = 4
@@ -289,9 +289,6 @@ export class AppService {
        from   action a
        where  a.id = $1`, [id]);
     if (!x || x.length == 0) return null;
-    const script_id = x[0].script_id;
-    const parent_id = x[0].parent_id;
-    const order_num = x[0].order_num;
     const y = await this.service.query(
       `select a.id
        from   action a
@@ -306,7 +303,7 @@ export class AppService {
        where  a.script_id = $1 
        and    coalesce(a.parent_id, 0) = $2
        order  by a.order_num`, [x[0].script_id, id]);
-    if (!z || y.length == 0) return null;
+    if (!z || z.length == 0) return null;
     return z[0].id;
   }
 
@@ -364,7 +361,7 @@ export class AppService {
   async sendInfo(self, send, callback, next) {
     try {
       const x = await this.service.query(
-        `select a.chat_id, b.id, coalesce(c.message, d.message) as message
+        `select a.chat_id, b.id, coalesce(c.message, d.message) as message, b.follow_to, a.id as user_id
          from   users a
          inner  join action b on (b.id = a.action_id and b.type_id = 1)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
@@ -376,7 +373,10 @@ export class AppService {
       if (x && x.length > 0) {
         for (let i = 0; i < x.length; i++) {
           await send(x[i].chat_id, x[i].message);
-          const action = await this.getNextAction(x[i].id);
+          let action = x[i].follow_to;
+          if (!action) {
+              action = await this.getNextAction(x[i].id);
+          }
           await this.service.createQueryBuilder("users")
           .update(users)
           .set({ 
@@ -384,7 +384,7 @@ export class AppService {
               updated: new Date(),
               action_id: action
           })
-          .where("id = :id", {id: x[i].id})
+          .where("id = :id", {id: x[i].user_id})
           .execute();
         }
       }
@@ -429,12 +429,12 @@ export class AppService {
   async saveParam(username, data): Promise<boolean> {
     try {
       const x = await this.service.query(
-        `select a.id as user_id, a.wait_for, b.id
+        `select a.id as user_id, a.wait_for, b.id, a.action_id
          from   users a
          left   join user_param b on (b.user_id = a.id and b.type_id = a.wait_for)
          where  a.username = $1 and not a.wait_for is null`, [username]);
       if (!x || x.length == 0) return false;
-      const action = await this.getNextAction(x[0].user_id);
+      const action = await this.getNextAction(x[0].action_id);
       if (x[0].id) {
         await this.service.createQueryBuilder("user_param")
         .update(user_param)
@@ -550,7 +550,7 @@ export class AppService {
     }
   }
 
-  async parseResponse(userId, actionId, result, response) {
+  async parseResponse(userId, actionId, response, result) {
     if (result.params) {
       for (let i = 0; i < result.params.length; i++) {
         if (response.data[0][result.params[i].name]) {
@@ -558,23 +558,29 @@ export class AppService {
         }
      }
     }
-    await this.setNextAction(userId, actionId, result.num);
+    if (result.num) {
+        await this.setNextAction(userId, actionId, result.num);
+    }
   }
 
   async http(userId, requestId, actionId, type, url, body) {
     if (type == 'GET') {
         this.httpService.get(url)
         .subscribe(async response => {
-          const params = await this.getResponse(requestId, response.status);
-          if (params) {
-             await this.parseResponse(userId, actionId, response, params);
+          const result = await this.getResponse(requestId, response.status);
+          if (result) {
+             await this.parseResponse(userId, actionId, response, result);
           } else {
              console.info(response);
           }
         }, async error => {
-          const params = await this.getResponse(requestId, error.response.status);
-          if (params) {
-              await this.parseResponse(userId, actionId, error.response, params);
+           if (!error.response) {
+             console.error(error);
+             return; 
+          }
+           const result = await this.getResponse(requestId, error.response.status);
+          if (result) {
+              await this.parseResponse(userId, actionId, error.response, result);
           } else {
             console.error(error);
           }
@@ -582,16 +588,20 @@ export class AppService {
     } else {
       this.httpService.post(url, body)
       .subscribe(async response => {
-        const params = await this.getResponse(requestId, response.status);
-        if (params) {
-          await this.parseResponse(userId, actionId, response, params);
+        const result = await this.getResponse(requestId, response.status);
+        if (result) {
+          await this.parseResponse(userId, actionId, response, result);
         } else {
           console.info(response);
         }
       }, async error => {
-        const params = await this.getResponse(requestId, error.response.status);
-        if (params) {
-          await this.parseResponse(userId, actionId, error.response, params);
+        if (!error.response) {
+           console.error(error);
+           return; 
+        }
+        const result = await this.getResponse(requestId, error.response.status);
+        if (result) {
+          await this.parseResponse(userId, actionId, error.response, result);
         } else {
           console.error(error);
         }
@@ -613,7 +623,7 @@ export class AppService {
          order  by a.scheduled
          limit  100`);
       if (x && x.length > 0) {
-         let body = [];
+         let body = {};
          const y = await this.service.query(
           `select a.param_name, b.value
            from   request_param a
@@ -623,6 +633,7 @@ export class AppService {
             for (let i = 0 ; i < y.length; i++) {
               body[y[i].param_name] = y[i].value;
             }
+            body['device'] = BOT_DEVICE;
          }
          await this.http(x[0].user_id, x[0].request_id, x[0].action_id, x[0].request_type, x[0].url, body);
       }
@@ -697,7 +708,7 @@ export class AppService {
       const x = await this.service.query(
         `select a.id
          from   action a
-         where  a.parent_id = $1 and a.order_num`, [actionId, num]);
+         where  a.parent_id = $1 and a.order_num = $2`, [actionId, num]);
       if (!x || x.length == 0) return;
       await this.service.createQueryBuilder("users")
       .update(users)

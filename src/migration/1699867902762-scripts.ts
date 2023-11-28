@@ -68,8 +68,8 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(204, 'en', 'Enter Login:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'ru', 'Введите пароль:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'en', 'Enter Password:')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'ru', 'Введите EMail (не обязательно):')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'en', 'Enter EMail (optionally):')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'ru', 'Введите EMail:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'en', 'Enter EMail:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'ru', 'Перейдите по ссылке на DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'en', 'Follow the link to the DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'ru', 'Учётная запись с таким именем уже существует')`);
@@ -107,8 +107,8 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into request_param(id, request_id, param_name, param_value) values(8, 2, 4, 'device', 'telegram')`);
 
         await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(1, 1, 1, 'access_token')`);
-        await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(2, 2, 1, 'access_token')`);
-        await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(3, 3, 6, 'sid')`);
+        await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(2, 3, 1, 'access_token')`);
+        await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(3, 5, 6, 'sid')`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
