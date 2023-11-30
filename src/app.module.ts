@@ -16,7 +16,8 @@ const STATE = {
   GETV: 5,
   INFO: 6,
   SEND: 7,
-  HTTP: 8
+  HTTP: 8,
+  DBPR: 9
 };
 
 let app = null;
@@ -76,7 +77,11 @@ export class AppModule {
         return true;
     } else if (this.state == STATE.HTTP) {
       this.state = STATE.WAIT;
-      await this.appService.httpRequest(this, this.execCallback, STATE.QEUE);
+      await this.appService.httpRequest(this, this.execCallback, STATE.DBPR);
+      return true;
+    } else if (this.state == STATE.DBPR) {
+      this.state = STATE.WAIT;
+      await this.appService.dbProc(this, this.execCallback, STATE.QEUE);
       return true;
     }
     return true;

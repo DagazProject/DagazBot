@@ -617,7 +617,7 @@ export class AppService {
          from   users a
          inner  join action b on (b.id = a.action_id)
          inner  join action_type c on (c.id = b.type_id)
-         inner  join request d on (d.id = c.request_id)
+         inner  join request d on (d.actiontype_id = c.id)
          inner  join server e on (e.id = d.server_id)
          where  a.scheduled < now()
          order  by a.scheduled
@@ -719,6 +719,53 @@ export class AppService {
       })
       .where("id = :id", {id: userId})
       .execute();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async dbProc(self, callback, next) {
+    try {
+      const x = await this.service.query(
+        `select a.id as user_id, d.id as proc_id, b.id as action_id, d.name as proc_name
+         from   users a
+         inner  join action b on (b.id = a.action_id)
+         inner  join action_type c on (c.id = b.type_id)
+         inner  join dbproc d on (d.actiontype_id = c.id)
+         where  a.scheduled < now()
+         order  by a.scheduled
+         limit  100`);
+      if (x && x.length > 0) {
+         let params = [x[0].user_id];
+         let sql = 'select ' + x[0].proc_name + '($1';
+         const y = await this.service.query(
+            `select a.order_num, coalesce(b.value, a.value) as value
+             from  db_param a
+             left  join user_param b on (b.type_id = a.param_type_id and b.user_id = $1)
+             where a.proc_id = $2
+             order by a.order_num`, [x[0].user_id, x[0].proc_id]);
+         if (y && y.length > 0) {
+             for (let i = 0; i < y.length; i++) {
+                  sql = sql + ',$' + y[i].order_num;
+                  params.push(y[i].value);
+             }
+         }
+         sql = sql + ') as value';
+         await this.service.query(sql, params);
+         // TODO: db_result
+
+         const action = await this.getNextAction(x[0].action_id);
+         await this.service.createQueryBuilder("users")
+         .update(users)
+         .set({ 
+             scheduled: action ? new Date() : null,
+             updated: new Date(),
+             action_id: action
+         })
+         .where("id = :id", {id: x[0].user_id})
+         .execute();
+        }
+        callback(self, next);
     } catch (error) {
       console.error(error);
     }

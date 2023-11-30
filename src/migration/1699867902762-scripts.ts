@@ -18,10 +18,6 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into script(id, name, command) values(3, 'Переключение в английскую локаль', 'en')`);
         await queryRunner.query(`insert into script(id, name, command) values(4, 'Переключение в русскую локаль', 'ru')`);
 
-        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(1, 2, '/auth/user', 'POST')`); // name, username, password, email -> 201 (TOKEN), 409
-        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(2, 2, '/auth/login', 'POST')`); // username, password -> 200 (TOKEN), 401
-        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(3, 2, '/session/notify', 'GET')`); // -> 200 [SID]
-
         await queryRunner.query(`insert into action_type(id, name) values(1, 'Вывод текста')`);
         await queryRunner.query(`insert into action_type(id, name) values(2, 'Ввод текста')`);
         await queryRunner.query(`insert into action_type(id, name) values(3, 'Меню')`);
@@ -29,8 +25,15 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action_type(id, name) values(5, 'Изменение переменной')`);
         await queryRunner.query(`insert into action_type(id, name, request_id) values(10, 'Создать учётную запись на DagazServer', 1)`);
         await queryRunner.query(`insert into action_type(id, name, request_id) values(11, 'Авторизоваться на DagazServer', 2)`);
-        await queryRunner.query(`insert into action_type(id, name) values(12, 'Связать пользователя с учётной записью')`); // Сформировать URL перехода с авторизацией
+        await queryRunner.query(`insert into action_type(id, name) values(12, 'Связать пользователя с учётной записью')`);
         await queryRunner.query(`insert into action_type(id, name) values(13, 'Перейти к игре')`); // Сформировать URL для перехода на игру по SID (с авторизацией)
+
+        await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(1, 2, 10, '/auth/user', 'POST')`);
+        await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(2, 2, 11, '/auth/login', 'POST')`);
+        await queryRunner.query(`insert into request(id, server_id, url, request_type) values(3, 2, '/session/notify', 'GET')`); // -> 200 [SID]
+
+        await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(1, 12, 'createAccount')`);
+        await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(1, 1, '1', 2)`);
 
         await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(201, 2, 3, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(202, 2, 201, 4, 1)`);
@@ -40,19 +43,18 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(206, 2, 202, 2, 4, 3)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(207, 2, 202, 10, 4)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(208, 2, 207, 12, 5, 1)`); // 201
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(209, 2, 208, 1, 5, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(210, 2, 207, 1, 201, 2)`); // 409
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id paramtype_id, order_num) values(211, 2, 203, 2, 2, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(212, 2, 203, 2, 3, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(213, 2, 203, 11, 3)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(214, 2, 213, 12, 5, 1)`); // 200
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(215, 2, 214, 1, 5, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(216, 2, 213, 1, 201, 2)`); // 401
         await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(101, 1, 11, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(102, 1, 101, 12, 5, 1)`); // 200
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(103, 1, 102, 13, 5, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(104, 1, 102, 1, 5, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(105, 1, 101, 1, 201, 2)`); // 409
+
         await queryRunner.query(`insert into action(id, script_id, type_id, paramtype_id, order_num) values(301, 3, 5, 7, 1)`);
         await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(302, 3, 1, 2)`);
         await queryRunner.query(`insert into action(id, script_id, type_id, paramtype_id, order_num) values(401, 4, 5, 7, 1)`);
@@ -70,16 +72,12 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(205, 'en', 'Enter Password:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'ru', 'Введите EMail:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(206, 'en', 'Enter EMail:')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'ru', 'Перейдите по ссылке на DagazServer')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(209, 'en', 'Follow the link to the DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'ru', 'Учётная запись с таким именем уже существует')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(210, 'en', 'An account with the same name already exists')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(211, 'ru', 'Введите логин:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(211, 'en', 'Enter Login:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(212, 'ru', 'Введите пароль:')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(212, 'en', 'Enter Password:')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(215, 'ru', 'Перейдите по ссылке на DagazServer')`);
-        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(215, 'en', 'Follow the link to the DagazServer')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(216, 'ru', 'Неверный логин или пароль')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(216, 'en', 'Wrong login or password')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(104, 'ru', 'Перейдите по ссылке для вход в игру')`);
@@ -115,9 +113,12 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`delete from response_param`);
         await queryRunner.query(`delete from request_param`);
         await queryRunner.query(`delete from response`);
+        await queryRunner.query(`delete from localized_string`);
         await queryRunner.query(`delete from action`);
-        await queryRunner.query(`delete from action_type`);
+        await queryRunner.query(`delete from db_param`);
+        await queryRunner.query(`delete from dbproc`);
         await queryRunner.query(`delete from request`);
+        await queryRunner.query(`delete from action_type`);
         await queryRunner.query(`delete from script`);
         await queryRunner.query(`delete from param_type`);
     }

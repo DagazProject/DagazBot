@@ -8,11 +8,4 @@ export class action_type {
 
     @Column({ nullable: false, type: "varchar", length: 100 })
     name: string;
-
-    @Index()
-    @Column({ nullable: true })
-    request_id: number;
-    @ManyToOne(type => request)
-    @JoinColumn({ name: "request_id" })
-    request: request;
 }
