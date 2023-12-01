@@ -108,22 +108,37 @@ export class AppModule {
     bot.on('text', async msg => {
       try {
         const chatId = msg.chat.id;
+        commands = await self.appService.getCommands();
+        let menu = [];
+        for (let i = 0; i < commands.length; i++) {
+            menu.push({
+              command: commands[i].name,
+              description: commands[i].descr
+            });
+        }
+        if (menu.length > 0) {
+            bot.setMyCommands(menu);
+        }
         let cmd = null;
-        const r = msg.text.match(/\/(\w+)/);
+        const r = msg.text.match(/\/(\w+)\s+(\S+)*/);
         if (r) {
             cmd = r[1];
         }
         if (cmd !== null) {
             if (cmd == 'start') {
-              commands = await self.appService.getCommands();
               await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
               return;
             }
         }
         if (await self.appService.saveParam(msg.from.username, msg.text)) return;
         if (cmd !== null) {
-          for (let i = 0; i < commands.length; i++) {
+            for (let i = 0; i < commands.length; i++) {
             if (commands[i].name == cmd) {
+                for (let j = 0; j < commands[i].params.length; j++) {
+                    if (r[j + 1]) {
+                        await self.appService.setParam(msg.from.username, commands[i].params[j], r[j + 1]);
+                    }
+                }
                 await self.appService.addAction(msg.from.username, commands[i].action);
                 return;
             }

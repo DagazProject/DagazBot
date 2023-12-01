@@ -1,5 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
 import { db_result } from "./db_result";
+import { action } from "./action";
 
 @Entity()
 export class db_action {
@@ -18,4 +19,11 @@ export class db_action {
 
     @Column({ nullable: false, type: "integer" })
     order_num: number;
+
+    @Index()
+    @Column({ nullable: true })
+    action_id: number;
+    @ManyToOne(type => action)
+    @JoinColumn({ name: "action_id" })
+    action: action;
 }

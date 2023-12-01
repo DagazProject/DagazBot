@@ -19,4 +19,11 @@ export class response {
 
     @Column({ nullable: false, type: "integer" })
     order_num: number;
+
+    @Index()
+    @Column({ nullable: true })
+    action_id: number;
+    @ManyToOne(type => action)
+    @JoinColumn({ name: "action_id" })
+    action: action;
 }

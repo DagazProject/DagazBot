@@ -35,8 +35,8 @@ export class AppService {
     try {
       let r = [];
       const x = await this.service.query(
-        `select x.command, x.action_id
-         from ( select a.command, b.id as action_id,
+        `select x.command, x.action_id, x.script_id, x.name
+         from ( select a.command, b.id as action_id, a.id as script_id, a.name,
                        row_number() over (partition by a.id order by b.order_num) rn
                 from   script a
                 inner  join action b on (b.script_id = a.id and b.parent_id is null)
@@ -44,10 +44,23 @@ export class AppService {
          where  x.rn = 1`);
          if (x && x.length > 0) {
              for (let i = 0; i < x.length; i++) {
+                 let p = [];
+                 const y = await this.service.query(
+                  `select a.paramtype_id
+                   from   script_param a
+                   where  a.script_id = $1
+                   order  by a.order_num`, [x[i].script_id]);
+                 if (y && y.length > 0) {
+                     for (let j = 0; j < y.length; j++) {
+                          p.push(y[j].paramtype_id);
+                     }
+                 }
                  r.push({
                     name: x[i].command,
-                    action: x[i].action_id
-                 });
+                    descr: x[i].name,
+                    action: x[i].action_id,
+                    params: p
+                });
              }
          }
       return r;
@@ -766,6 +779,38 @@ export class AppService {
          .execute();
         }
         callback(self, next);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async setParam(username: string, paramId: number, paramValue: string) {
+    try {
+      const id = await this.getUserId(username);
+      const x = await this.service.query(
+        `select a.id
+         from   user_param a
+         where  a.user_id = $1 and a.type_id = $2`, [id, paramId]);
+      if (x && x.length > 0) {
+          await this.service.createQueryBuilder("user_param")
+          .update(user_param)
+          .set({ 
+              created: new Date(),
+              value: paramValue
+          })
+          .where("id = :id", {id: x[0].id})
+          .execute();
+      } else {
+        await this.service.createQueryBuilder("user_param")
+        .insert()
+        .into(user_param)
+        .values({
+          type_id: paramId,
+          user_id: id,
+          value: paramValue
+        })
+        .execute();
+      }
     } catch (error) {
       console.error(error);
     }

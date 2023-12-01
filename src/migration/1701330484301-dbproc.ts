@@ -33,9 +33,51 @@ export class dbproc1701330484301 implements MigrationInterface {
             where user_id = pUser and type_id in (2, 3, 4);
           end;
           $$ language plpgsql VOLATILE`);
+          await queryRunner.query(`create or replace function chooseAccount(
+            in pUser integer,
+            in pAccount text,
+            in pServer integer
+          ) returns json
+          as $$
+          declare
+            r json;
+            x record;
+            lAccount text default null;
+          begin
+            if pAccount is null then
+               select string_agg(b.value, ',') as lAccount
+               from   account a
+               inner  join user_param b on (b.account_id = a.id and b.type_id = 2 and b.deleted is null)
+               where  a.user_id = pUser and a.server_id = pServer and a.deleted is null;
+               for x in
+                   select case
+                            when lAccount = '' then 0
+                            else 2 
+                          end as result, lAccount as login
+               loop
+                   r := row_to_json(x);  
+               end loop;
+            else
+               select b.value into lAccount
+               from   account a
+               inner  join user_param b on (b.account_id = a.id and b.type_id = 2 and b.deleted is null)
+               where  a.user_id = pUser and a.server_id = pServer and a.deleted is null and b.value = pAccount;
+               for x in
+                   select case
+                            when lAccount is null then 0
+                            else 1 
+                          end as result, lAccount as login
+               loop
+                   r := row_to_json(x);  
+               end loop;
+            end if;
+            return r;
+          end;
+          $$ language plpgsql STABLE`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
-        await queryRunner.query(`drop function createAccount(integer, integer)`);
+      await queryRunner.query(`drop function chooseAccount(integer, text, integer)`);
+      await queryRunner.query(`drop function createAccount(integer, integer)`);
     }
 }
