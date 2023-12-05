@@ -25,8 +25,8 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action_type(id, name) values(3, 'Меню')`);
         await queryRunner.query(`insert into action_type(id, name) values(4, 'Пункт меню')`);
         await queryRunner.query(`insert into action_type(id, name) values(5, 'Изменение переменной')`);
-        await queryRunner.query(`insert into action_type(id, name, request_id) values(10, 'Создать учётную запись на DagazServer', 1)`);
-        await queryRunner.query(`insert into action_type(id, name, request_id) values(11, 'Авторизоваться на DagazServer', 2)`);
+        await queryRunner.query(`insert into action_type(id, name) values(10, 'Создать учётную запись на DagazServer')`);
+        await queryRunner.query(`insert into action_type(id, name) values(11, 'Авторизоваться на DagazServer')`);
         await queryRunner.query(`insert into action_type(id, name) values(12, 'Связать пользователя с учётной записью')`);
         await queryRunner.query(`insert into action_type(id, name) values(13, 'Перейти к игре')`);
         await queryRunner.query(`insert into action_type(id, name) values(14, 'Проверить username')`);
@@ -124,7 +124,7 @@ export class scripts1699867902762 implements MigrationInterface {
 
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(1, 1, 200, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(2, 1, 400, 2)`);
-        await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(3, 2, 200, 1)`);
+        await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(3, 2, 201, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(4, 2, 401, 2)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(5, 3, 200, 1)`);
 

@@ -84,7 +84,7 @@ export class AppService {
     const x = await this.service.query(
       `select id
        from   user_param a
-       where  a.user_id = $1 and a.type_id = $1`, [user_id, type_id]);
+       where  a.user_id = $1 and a.type_id = $2`, [user_id, type_id]);
     if (!x || x.length == 0) {
        return null;
     }
@@ -145,6 +145,14 @@ export class AppService {
             })
             .execute();
         }
+        await this.service.createQueryBuilder("command_queue")
+        .insert()
+        .into(command_queue)
+        .values({
+          user_id: x[0].id,
+          action_id: 201
+        })
+        .execute();
       } else {
         const y = await this.service.createQueryBuilder("users")
         .insert()
@@ -296,20 +304,22 @@ export class AppService {
     }
   }
 
-  async getNextAction(id: number):Promise<number> {
+  async getNextAction(id: number, isParent: boolean):Promise<number> {
     const x = await this.service.query(
       `select a.script_id, coalesce(a.parent_id, 0) as parent_id, a.order_num
        from   action a
        where  a.id = $1`, [id]);
     if (!x || x.length == 0) return null;
-    const y = await this.service.query(
-      `select a.id
-       from   action a
-       where  a.script_id = $1 
-       and    coalesce(a.parent_id, 0) = $2
-       and    a.order_num > $3
-       order  by a.order_num`, [x[0].script_id, x[0].parent_id, x[0].order_num]);
-    if (y && y.length > 0) return y[0].id;
+    if (!isParent) {
+      const y = await this.service.query(
+        `select a.id
+         from   action a
+         where  a.script_id = $1 
+         and    coalesce(a.parent_id, 0) = $2
+         and    a.order_num > $3
+         order  by a.order_num`, [x[0].script_id, x[0].parent_id, x[0].order_num]);
+      if (y && y.length > 0) return y[0].id;
+    }
     const z = await this.service.query(
       `select a.id
        from   action a
@@ -353,7 +363,7 @@ export class AppService {
              })
              .execute();
           }
-          const action = await this.getNextAction(x[i].id);
+          const action = await this.getNextAction(x[i].id, false);
           await this.service.createQueryBuilder("users")
           .update(users)
           .set({ 
@@ -361,7 +371,7 @@ export class AppService {
               updated: new Date(),
               action_id: action
           })
-          .where("id = :id", {id: x[i].id})
+          .where("id = :id", {id: x[i].user_id})
           .execute();
        }
       }
@@ -379,7 +389,7 @@ export class AppService {
          inner  join action b on (b.id = a.action_id and b.type_id = 1)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
-         inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+         left   join localized_string d on (d.action_id = b.id and d.locale = 'en')
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
@@ -388,7 +398,7 @@ export class AppService {
           await send(x[i].chat_id, x[i].message);
           let action = x[i].follow_to;
           if (!action) {
-              action = await this.getNextAction(x[i].id);
+              action = await this.getNextAction(x[i].id, false);
           }
           await this.service.createQueryBuilder("users")
           .update(users)
@@ -447,7 +457,7 @@ export class AppService {
          left   join user_param b on (b.user_id = a.id and b.type_id = a.wait_for)
          where  a.username = $1 and not a.wait_for is null`, [username]);
       if (!x || x.length == 0) return false;
-      const action = await this.getNextAction(x[0].action_id);
+      const action = await this.getNextAction(x[0].action_id, false);
       if (x[0].id) {
         await this.service.createQueryBuilder("user_param")
         .update(user_param)
@@ -566,8 +576,8 @@ export class AppService {
   async parseResponse(userId, actionId, response, result) {
     if (result.params) {
       for (let i = 0; i < result.params.length; i++) {
-        if (response.data[0][result.params[i].name]) {
-            await this.setParamValue(userId, result.params[i].code, response.data[0][result.params[i].name]);
+        if (response.data[result.params[i].name]) {
+            await this.setParamValue(userId, result.params[i].code, response.data[result.params[i].name]);
         }
      }
     }
@@ -591,7 +601,7 @@ export class AppService {
              console.error(error);
              return; 
           }
-           const result = await this.getResponse(requestId, error.response.status);
+          const result = await this.getResponse(requestId, error.response.status);
           if (result) {
               await this.parseResponse(userId, actionId, error.response, result);
           } else {
@@ -754,7 +764,7 @@ export class AppService {
          const y = await this.service.query(
             `select a.order_num, coalesce(b.value, a.value) as value
              from  db_param a
-             left  join user_param b on (b.type_id = a.param_type_id and b.user_id = $1)
+             left  join user_param b on (b.type_id = a.paramtype_id and b.user_id = $1)
              where a.proc_id = $2
              order by a.order_num`, [x[0].user_id, x[0].proc_id]);
          if (y && y.length > 0) {
@@ -767,7 +777,7 @@ export class AppService {
          await this.service.query(sql, params);
          // TODO: db_result
 
-         const action = await this.getNextAction(x[0].action_id);
+         const action = await this.getNextAction(x[0].action_id, true);
          await this.service.createQueryBuilder("users")
          .update(users)
          .set({ 

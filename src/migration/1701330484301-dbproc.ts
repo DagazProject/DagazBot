@@ -11,16 +11,16 @@ export class dbproc1701330484301 implements MigrationInterface {
           declare
             pLogin text;
             pAccount integer default null;
+            c integer;
           begin
             select value into strict pLogin
             from   user_param
             where  user_id = pUser and type_id = 2;
             select a.id into pAccount
             from   account a
-            inner  join user_param b on (b.action_id = a.id and type_id = 2)
+            inner  join user_param b on (b.account_id = a.id and type_id = 2)
             where  a.server_id = pServer and a.deleted is null
-            and    b.value = pLogin
-            limit  1;
+            and    b.value = pLogin;
             if pAccount is null then
                insert into account(user_id, server_id)
                values (pUser, pServer)
@@ -31,6 +31,7 @@ export class dbproc1701330484301 implements MigrationInterface {
             end if;
             update user_param set account_id = pAccount, user_id = null
             where user_id = pUser and type_id in (2, 3, 4);
+            return pAccount;
           end;
           $$ language plpgsql VOLATILE`);
           await queryRunner.query(`create or replace function chooseAccount(

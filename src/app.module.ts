@@ -6,7 +6,7 @@ import { appProvider } from './app.provider';
 
 const TelegramBot = require('node-telegram-bot-api');
 
-const TIMEOUT = 1000;
+const TIMEOUT = 500;
 
 const STATE = {
   WAIT: 1,
@@ -120,7 +120,7 @@ export class AppModule {
             bot.setMyCommands(menu);
         }
         let cmd = null;
-        const r = msg.text.match(/\/(\w+)\s+(\S+)*/);
+        const r = msg.text.match(/\/(\w+)\s*(\S+)*/);
         if (r) {
             cmd = r[1];
         }
