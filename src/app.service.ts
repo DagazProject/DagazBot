@@ -189,7 +189,7 @@ export class AppService {
     }
   }
 
-  async getActions(self, callback, next) {
+  async getActions() {
     try {
       const x = await this.service.query(
         `select x.id, x.user_id, x.action_id, x.created
@@ -201,30 +201,72 @@ export class AppService {
          where  x.rn = 1
          order  by x.created
          limit  10`);
-      if (x && x.length > 0) {
-          for (let i = 0; i < x.length; i++) {
-            await this.service.createQueryBuilder("users")
-            .update(users)
-            .set({ 
-                action_id: x[i].action_id,
-                scheduled: new Date()
-            })
-            .where("id = :id", {id: x[i].user_id})
-            .execute();
-            await this.service.createQueryBuilder("command_queue")
-            .delete()
-            .from(command_queue)
-            .where(`id  = :id`, {id: x[i].id})
-            .execute();
-          }
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            action_id: x[i].action_id,
+            scheduled: new Date()
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
+        await this.service.createQueryBuilder("command_queue")
+        .delete()
+        .from(command_queue)
+        .where(`id  = :id`, {id: x[i].id})
+        .execute();
       }
-      callback(self, next);
     } catch (error) {
       console.error(error);
     }
   }
 
-  async getMenu(self, menucallback, callback, next) {
+  async getVirtualMenu(menucallback) {
+    try {
+      const x = await this.service.query(
+        `select a.id as user_id, b.id, a.chat_id,
+                coalesce(c.message, d.message) as message, e.value
+         from   users a
+         inner  join action b on (b.id = a.action_id and b.type_id = 6)
+         left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+         left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+         inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+         inner  join user_param e on (e.user_id = a.id and e.type_id = b.paramtype_id)
+         where  a.scheduled < now()
+         order  by a.scheduled
+         limit  100`);
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        const list = x[i].value.split(/,/);
+        let menu = [];
+        for (let j = 0; j < list.length; j++) {
+            menu.push([{
+              text: list[j],
+              callback_data: list[j]
+            }]);
+         }
+         await this.service.createQueryBuilder("users")
+         .update(users)
+         .set({ 
+             scheduled: null
+         })
+         .where("id = :id", {id: x[i].user_id})
+         .execute();
+         if (menu.length > 0) {
+           await menucallback(x[i].chat_id, x[i].message, {
+             reply_markup: {
+               inline_keyboard: menu
+             }
+          });
+        }
+     }
+  } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async getMenu(menucallback) {
     try {
       const x = await this.service.query(
         `select a.id as user_id, b.id, a.chat_id,
@@ -238,40 +280,38 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-         for (let i = 0; i < x.length; i++) {
-              const y = await this.service.query(
-             `select a.id, a.order_num, c.message
-              from   action a
-              inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
-              where  a.parent_id = $2 and a.type_id = 4
-              order  by a.order_num`, [x[i].locale, x[i].id]);
-              let menu = [];
-              for (let j = 0; j < y.length; j++) {
-                  menu.push([{
-                     text: y[j].message,
-                     callback_data: y[j].id
-                  }]);
-              }
-              await this.service.createQueryBuilder("users")
-              .update(users)
-              .set({ 
-                  action_id: null,
-                  scheduled: null
-              })
-              .where("id = :id", {id: x[i].user_id})
-              .execute();
-              if (menu.length > 0) {
-                 await menucallback(x[i].chat_id, x[i].message, {
-                   reply_markup: {
-                     inline_keyboard: menu
-                   }
-                });
-            }
-         }
-      }
-      callback(self, next);
-    } catch (error) {
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        const y = await this.service.query(
+       `select a.id, a.order_num, c.message
+        from   action a
+        inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
+        where  a.parent_id = $2 and a.type_id = 4
+        order  by a.order_num`, [x[i].locale, x[i].id]);
+        let menu = [];
+        for (let j = 0; j < y.length; j++) {
+            menu.push([{
+               text: y[j].message,
+               callback_data: y[j].id
+            }]);
+        }
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            action_id: null,
+            scheduled: null
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
+        if (menu.length > 0) {
+           await menucallback(x[i].chat_id, x[i].message, {
+             reply_markup: {
+               inline_keyboard: menu
+             }
+          });
+        }
+     }
+  } catch (error) {
       console.error(error);
     }
   }
@@ -279,23 +319,38 @@ export class AppService {
   async chooseItem(username, data) {
     try {
       const x = await this.service.query(
-        `select a.id
+        `select a.id, a.paramtype_id, a.follow_to
          from   users a
+         left   join action b on (b.id = a.action_id and b.type_id = 6)
          where  a.username = $1`, [username]);
       if (!x || x.length == 0) return;
-      const y = await this.service.query(
-        `select x.id
-         from ( select a.id, row_number() over (order by a.order_num) as rn
-                from   action a
-                where  a.parent_id = $1) x
-         where  x.rn = 1`, [data]);
-      if (!y || y.length == 0) return;
+      let action = x[0].follow_to;
+      if (x[0].paramtype_id) {
+        await this.service.createQueryBuilder("user_param")
+        .update(user_param)
+        .set({ 
+            created: new Date(),
+            value: data
+        })
+        .where("user_id = :id and type_id = :tp", {id: x[0].id, tp: x[0].paramtype_id})
+        .execute();
+      } else {
+        const y = await this.service.query(
+          `select x.id
+           from ( select a.id, row_number() over (order by a.order_num) as rn
+                  from   action a
+                  where  a.parent_id = $1) x
+           where  x.rn = 1`, [data]);
+        if (y && y.length > 0) {
+           action = y[0].id;
+        }
+      }
       await this.service.createQueryBuilder("users")
       .update(users)
       .set({ 
-          scheduled: new Date(),
+          scheduled: action ? new Date() : null,
           updated: new Date(),
-          action_id: y[0].id
+          action_id: action
       })
       .where("id = :id", {id: x[0].id})
       .execute();
@@ -330,7 +385,7 @@ export class AppService {
     return z[0].id;
   }
 
-  async setParams(self, callback, next) {
+  async setParams() {
     try {
       const x = await this.service.query(
         `select a.id as user_id, b.id, b.paramtype_id, d.message
@@ -340,84 +395,86 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-        for (let i = 0; i < x.length; i++) {
-          const id = await this.getParamId(x[0].user_id, x[i].paramtype_id);
-          if (id) {
-             await this.service.createQueryBuilder("user_param")
-             .update(user_param)
-             .set({ 
-                 created: new Date(),
-                 value: x[i].message
-             })
-             .where("id = :id", {id: id})
-             .execute();
-            } else {
-             await this.service.createQueryBuilder("user_param")
-             .insert()
-             .into(user_param)
-             .values({
-               type_id: x[i].paramtype_id,
-               user_id: x[i].user_id,
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        const id = await this.getParamId(x[0].user_id, x[i].paramtype_id);
+        if (id) {
+           await this.service.createQueryBuilder("user_param")
+           .update(user_param)
+           .set({ 
+               created: new Date(),
                value: x[i].message
-             })
-             .execute();
-          }
-          const action = await this.getNextAction(x[i].id, false);
-          await this.service.createQueryBuilder("users")
-          .update(users)
-          .set({ 
-              scheduled: action ? new Date() : null,
-              updated: new Date(),
-              action_id: action
-          })
-          .where("id = :id", {id: x[i].user_id})
-          .execute();
-       }
-      }
-      callback(self, next);
-    } catch (error) {
+           })
+           .where("id = :id", {id: id})
+           .execute();
+          } else {
+           await this.service.createQueryBuilder("user_param")
+           .insert()
+           .into(user_param)
+           .values({
+             type_id: x[i].paramtype_id,
+             user_id: x[i].user_id,
+             value: x[i].message
+           })
+           .execute();
+        }
+        const action = await this.getNextAction(x[i].id, false);
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            scheduled: action ? new Date() : null,
+            updated: new Date(),
+            action_id: action
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
+     }
+  } catch (error) {
       console.error(error);
     }
   }
 
-  async sendInfo(self, send, callback, next) {
+  async sendInfo(send) {
     try {
       const x = await this.service.query(
-        `select a.chat_id, b.id, coalesce(c.message, d.message) as message, b.follow_to, a.id as user_id
+        `select a.chat_id, b.id, coalesce(c.message, d.message) as message, 
+                b.follow_to, a.id as user_id, e.value as data
          from   users a
          inner  join action b on (b.id = a.action_id and b.type_id = 1)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          left   join localized_string d on (d.action_id = b.id and d.locale = 'en')
+         left   join user_param e on (e.user_id = a.id and e.type_id = b.paramtype_id)
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-        for (let i = 0; i < x.length; i++) {
-          await send(x[i].chat_id, x[i].message);
-          let action = x[i].follow_to;
-          if (!action) {
-              action = await this.getNextAction(x[i].id, false);
-          }
-          await this.service.createQueryBuilder("users")
-          .update(users)
-          .set({ 
-              scheduled: action ? new Date() : null,
-              updated: new Date(),
-              action_id: action
-          })
-          .where("id = :id", {id: x[i].user_id})
-          .execute();
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        let message = x[i].message;
+        if (x[i].data) {
+            message = message + ' ' + x[i].data;
         }
+        await send(x[i].chat_id, message);
+        let action = x[i].follow_to;
+        if (!action) {
+            action = await this.getNextAction(x[i].id, false);
+        }
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            scheduled: action ? new Date() : null,
+            updated: new Date(),
+            action_id: action
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
       }
-      callback(self, next);
     } catch (error) {
       console.error(error);
     }
   }
 
-  async getParams(self, send, callback, next) {
+  async getParams(send) {
     try {
       const x = await this.service.query(
         `select a.chat_id, a.id, b.paramtype_id, coalesce(c.message, d.message) as message
@@ -429,22 +486,20 @@ export class AppService {
          where  a.scheduled < now() and a.wait_for is null
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-         for (let i = 0; i < x.length; i++) {
-            await send(x[i].chat_id, x[i].message);
-            await this.service.createQueryBuilder("users")
-            .update(users)
-            .set({ 
-                scheduled: null,
-                wait_for: x[i].paramtype_id,
-                updated: new Date(),
-            })
-            .where("id = :id", {id: x[i].id})
-            .execute();
-         }
-      }
-      callback(self, next);
-    } catch (error) {
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+        await send(x[i].chat_id, x[i].message);
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            scheduled: null,
+            wait_for: x[i].paramtype_id,
+            updated: new Date(),
+        })
+        .where("id = :id", {id: x[i].id})
+        .execute();
+     }
+  } catch (error) {
       console.error(error);
     }
   }
@@ -517,7 +572,7 @@ export class AppService {
     }
   }
 
-  async sendMessages(self, send, callback, next) {
+  async sendMessages(send) {
     try {
       const x = await this.service.query(
         `select a.id, a.send_to, a.locale, a.data, b.is_admin
@@ -526,49 +581,47 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  1`);
-      if (x && x.length > 0) {
-        if (x[0].send_to) {
+      if (!x || x.length == 0) return;
+      if (x[0].send_to) {
+        const y = await this.service.query(
+          `select a.chat_id
+           from   users a
+           where  a.id = $1`, [x[0].send_to]);
+           if (y && y.length > 0) {
+              await send(y[0].chat_id, x[0].data);
+           }
+      } else {
+        if (x[0].is_admin) {
             const y = await this.service.query(
               `select a.chat_id
                from   users a
-               where  a.id = $1`, [x[0].send_to]);
-               if (y && y.length > 0) {
-                  await send(y[0].chat_id, x[0].data);
-               }
+               left   join user_param b on (b.user_id = a.id and type_id = 7)
+               where  coalesce(b.value, 'en') = $1 `, [x[0].locale]);
+            if (y && y.length > 0) {
+               for (let i = 0; i < y.length; i++) {
+                await send(y[i].chat_id, x[0].data);
+              }
+            }
         } else {
-            if (x[0].is_admin) {
-                const y = await this.service.query(
-                  `select a.chat_id
-                   from   users a
-                   left   join user_param b on (b.user_id = a.id and type_id = 7)
-                   where  coalesce(b.value, 'en') = $1 `, [x[0].locale]);
-                if (y && y.length > 0) {
-                   for (let i = 0; i < y.length; i++) {
-                    await send(y[i].chat_id, x[0].data);
-                  }
-                }
-            } else {
-                const y = await this.service.query(
-                  `select a.chat_id
-                   from   users a
-                   where  a.is_admin`);
-                if (y && y.length > 0) {
-                   for (let i = 0; i < y.length; i++) {
-                     await send(y[i].chat_id, x[0].data);
-                   }
-                }
+            const y = await this.service.query(
+              `select a.chat_id
+               from   users a
+               where  a.is_admin`);
+            if (y && y.length > 0) {
+               for (let i = 0; i < y.length; i++) {
+                 await send(y[i].chat_id, x[0].data);
+               }
             }
         }
-        await this.service.createQueryBuilder("message")
-        .update(message)
-        .set({ 
-            scheduled: null
-        })
-        .where("id = :id", {id: x[0].id})
-        .execute();
-      }
-      callback(self, next);
-    } catch (error) {
+    }
+    await this.service.createQueryBuilder("message")
+    .update(message)
+    .set({ 
+        scheduled: null
+    })
+    .where("id = :id", {id: x[0].id})
+    .execute();
+  } catch (error) {
       console.error(error);
     }
   }
@@ -632,7 +685,7 @@ export class AppService {
     }
   }
 
-  async httpRequest(self, callback, next) {
+  async httpRequest() {
     try {
       const x = await this.service.query(
         `select a.id as user_id, d.id as request_id, b.id as action_id, d.request_type,
@@ -645,22 +698,22 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-         let body = {};
-         const y = await this.service.query(
-          `select a.param_name, b.value
-           from   request_param a
-           left   join user_param b on (b.type_id = a.paramtype_id and b.user_id = $1)
-           where  a.request_id = $2`, [x[0].user_id, x[0].request_id]);
-         if (y && y.length > 0) {
-            for (let i = 0 ; i < y.length; i++) {
-              body[y[i].param_name] = y[i].value;
-            }
-            body['device'] = BOT_DEVICE;
-         }
-         await this.http(x[0].user_id, x[0].request_id, x[0].action_id, x[0].request_type, x[0].url, body);
-      }
-      callback(self, next);
+      if (!x || x.length == 0) return;
+      for (let k = 0; k < x.length; k++) {
+        let body = {};
+        const y = await this.service.query(
+         `select a.param_name, b.value
+          from   request_param a
+          left   join user_param b on (b.type_id = a.paramtype_id and b.user_id = $1)
+          where  a.request_id = $2`, [x[k].user_id, x[k].request_id]);
+        if (y && y.length > 0) {
+           for (let i = 0 ; i < y.length; i++) {
+             body[y[i].param_name] = y[i].value;
+           }
+           body['device'] = BOT_DEVICE;
+        }
+        await this.http(x[k].user_id, x[k].request_id, x[k].action_id, x[k].request_type, x[k].url, body);
+       }
     } catch (error) {
       console.error(error);
     }
@@ -747,10 +800,11 @@ export class AppService {
     }
   }
 
-  async dbProc(self, callback, next) {
+  async dbProc() {
     try {
       const x = await this.service.query(
-        `select a.id as user_id, d.id as proc_id, b.id as action_id, d.name as proc_name
+        `select a.id as user_id, d.id as proc_id, b.id as action_id, 
+                d.name as proc_name, a.username as user_name
          from   users a
          inner  join action b on (b.id = a.action_id)
          inner  join action_type c on (c.id = b.type_id)
@@ -758,37 +812,62 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (x && x.length > 0) {
-         let params = [x[0].user_id];
-         let sql = 'select ' + x[0].proc_name + '($1';
-         const y = await this.service.query(
-            `select a.order_num, coalesce(b.value, a.value) as value
-             from  db_param a
-             left  join user_param b on (b.type_id = a.paramtype_id and b.user_id = $1)
-             where a.proc_id = $2
-             order by a.order_num`, [x[0].user_id, x[0].proc_id]);
-         if (y && y.length > 0) {
-             for (let i = 0; i < y.length; i++) {
-                  sql = sql + ',$' + y[i].order_num;
-                  params.push(y[i].value);
-             }
-         }
-         sql = sql + ') as value';
-         await this.service.query(sql, params);
-         // TODO: db_result
-
-         const action = await this.getNextAction(x[0].action_id, true);
-         await this.service.createQueryBuilder("users")
-         .update(users)
-         .set({ 
-             scheduled: action ? new Date() : null,
-             updated: new Date(),
-             action_id: action
-         })
-         .where("id = :id", {id: x[0].user_id})
-         .execute();
+      if (!x || x.length == 0) return;
+      for (let k = 0; k < x.length; k++) {
+        let params = [x[k].user_id];
+        let sql = 'select ' + x[k].proc_name + '($1';
+        const y = await this.service.query(
+           `select a.order_num, coalesce(b.value, a.value) as value
+            from  db_param a
+            left  join user_param b on (b.type_id = a.paramtype_id and b.user_id = $1)
+            where a.proc_id = $2
+            order by a.order_num`, [x[k].user_id, x[k].proc_id]);
+        if (y && y.length > 0) {
+            for (let i = 0; i < y.length; i++) {
+                 sql = sql + ',$' + y[i].order_num;
+                 params.push(y[i].value);
+            }
         }
-        callback(self, next);
+        sql = sql + ') as value';
+        let action = null;
+        const z = await this.service.query(sql, params);
+        if (z && z.length > 0) {
+            const p = await this.service.query(`
+              select a.name, a.paramtype_id
+              from   db_result a
+              where  a.proc_id = $1 and not a.paramtype_id is null`, [x[k].proc_id]);
+            if (p && p.length > 0) {
+              for (let i = 0; i < p.length; i++) {
+                 await this.setParam(x[k].user_name, p[i].paramtype_id, z[0][p[i].name]);
+              }
+            }
+            const q = await this.service.query(`
+              select a.name, b.result_value, b.action_id
+              from   db_result a
+              inner  join db_action b on (b.result_id = a.id)
+              where  a.proc_id = $1
+              order  by b.order_num`, [x[k].proc_id]);
+            if (q && q.length > 0) {
+               for (let i = 0; i < q.length; i++) {
+                  if (z[0][q[i].name] == q[i].result_value) {
+                    action = q[i].action_id;
+                  }
+               }
+            }
+        }
+        if (action === null) {
+          action = await this.getNextAction(x[k].action_id, true);
+        }
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            scheduled: action ? new Date() : null,
+            updated: new Date(),
+            action_id: action
+        })
+        .where("id = :id", {id: x[k].user_id})
+        .execute();
+      }
     } catch (error) {
       console.error(error);
     }

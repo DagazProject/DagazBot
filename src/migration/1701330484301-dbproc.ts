@@ -45,39 +45,56 @@ export class dbproc1701330484301 implements MigrationInterface {
             x record;
             lAccount text default null;
           begin
-            if pAccount is null then
-               select string_agg(b.value, ',') as lAccount
-               from   account a
-               inner  join user_param b on (b.account_id = a.id and b.type_id = 2 and b.deleted is null)
-               where  a.user_id = pUser and a.server_id = pServer and a.deleted is null;
-               for x in
-                   select case
-                            when lAccount = '' then 0
-                            else 2 
-                          end as result, lAccount as login
-               loop
-                   r := row_to_json(x);  
-               end loop;
-            else
-               select b.value into lAccount
-               from   account a
-               inner  join user_param b on (b.account_id = a.id and b.type_id = 2 and b.deleted is null)
-               where  a.user_id = pUser and a.server_id = pServer and a.deleted is null and b.value = pAccount;
-               for x in
-                   select case
-                            when lAccount is null then 0
-                            else 1 
-                          end as result, lAccount as login
-               loop
-                   r := row_to_json(x);  
-               end loop;
-            end if;
+            select string_agg(b.value, ',') into lAccount
+            from   account a
+            inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
+            where  a.user_id = pUser and a.server_id = pServer and a.deleted is null
+            and    coalesce(pAccount, b.value) = b.value;
+            for x in
+                select case
+                   when lAccount is null then 0
+                   when strpos(lAccount, ',') = 0 then 1
+                   else 2 
+                end as result, lAccount as login
+            loop
+                r := row_to_json(x);  
+            end loop;
+            return r;
+          end;
+          $$ language plpgsql STABLE`);
+          await queryRunner.query(`create or replace function enterUrl(
+            in pUser integer,
+            in pServer integer
+          ) returns json
+          as $$
+          declare
+            lToken text default null;
+            lUrl text default null;
+            r json;
+            x record;
+          begin
+            select value into lToken
+            from   user_param
+            where  user_id = pUser and type_id = 11;
+            select url into lUrl
+            from   server
+            where  id = pServer;
+            for x in
+                select lUrl || '/redirect/' || lToken as url,
+                  case
+                    when lUrl is null or lTicket is null then 0
+                    else 1
+                  end as result
+            loop
+                r := row_to_json(x);  
+            end loop;
             return r;
           end;
           $$ language plpgsql STABLE`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function enterUrl(integer, integer)`);
       await queryRunner.query(`drop function chooseAccount(integer, text, integer)`);
       await queryRunner.query(`drop function createAccount(integer, integer)`);
     }
