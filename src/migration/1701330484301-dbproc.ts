@@ -44,20 +44,32 @@ export class dbproc1701330484301 implements MigrationInterface {
             r json;
             x record;
             lAccount text default null;
+            lPass text default null;
           begin
             select string_agg(b.value, ',') into lAccount
             from   account a
             inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
             where  a.user_id = pUser and a.server_id = pServer and a.deleted is null
             and    coalesce(pAccount, b.value) = b.value;
+            if not pAccount is null then
+               select b.pass into lPass
+               from   user_param a
+               inner  join ( 
+                      select c.user_id, e.value as pass
+                      from   account c
+                      inner  join user_param d on (d.account_id = c.id and d.type_id = 2 and d.value = pAccount)
+                      inner  join user_param e on (e.account_id = c.id and e.type_id = 3)
+               ) b on (b.user_id = a.user_id)
+               where  a.value = pAccount and a.type_id = 2 and a.user_id = pUser;
+            end if;
             for x in
-                select case
-                   when lAccount is null then 0
-                   when strpos(lAccount, ',') = 0 then 1
-                   else 2 
-                end as result, lAccount as login
+               select case
+                  when lAccount is null then 0
+                  when strpos(lAccount, ',') = 0 then 1
+                  else 2 
+               end as result, lAccount as login, lPass as password
             loop
-                r := row_to_json(x);  
+               r := row_to_json(x);  
             end loop;
             return r;
           end;
@@ -82,15 +94,16 @@ export class dbproc1701330484301 implements MigrationInterface {
             for x in
                 select lUrl || '/redirect/' || lToken as url,
                   case
-                    when lUrl is null or lTicket is null then 0
+                    when lUrl is null or lToken is null then 0
                     else 1
                   end as result
             loop
                 r := row_to_json(x);  
             end loop;
+            delete from user_param where user_id = pUser and type_id in (2, 3, 11);
             return r;
           end;
-          $$ language plpgsql STABLE`);
+          $$ language plpgsql VOLATILE`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {

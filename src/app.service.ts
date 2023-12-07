@@ -319,7 +319,7 @@ export class AppService {
   async chooseItem(username, data) {
     try {
       const x = await this.service.query(
-        `select a.id, a.paramtype_id, a.follow_to
+        `select a.id, b.paramtype_id, b.follow_to
          from   users a
          left   join action b on (b.id = a.action_id and b.type_id = 6)
          where  a.username = $1`, [username]);
@@ -832,13 +832,15 @@ export class AppService {
         let action = null;
         const z = await this.service.query(sql, params);
         if (z && z.length > 0) {
-            const p = await this.service.query(`
+             const p = await this.service.query(`
               select a.name, a.paramtype_id
               from   db_result a
               where  a.proc_id = $1 and not a.paramtype_id is null`, [x[k].proc_id]);
             if (p && p.length > 0) {
               for (let i = 0; i < p.length; i++) {
-                 await this.setParam(x[k].user_name, p[i].paramtype_id, z[0][p[i].name]);
+                if (z[0].value[p[i].name]) {
+                  await this.setParam(x[k].user_name, p[i].paramtype_id, z[0].value[p[i].name]);
+                }
               }
             }
             const q = await this.service.query(`
@@ -849,7 +851,7 @@ export class AppService {
               order  by b.order_num`, [x[k].proc_id]);
             if (q && q.length > 0) {
                for (let i = 0; i < q.length; i++) {
-                  if (z[0][q[i].name] == q[i].result_value) {
+                  if (z[0].value[q[i].name] == q[i].result_value) {
                     action = q[i].action_id;
                   }
                }
