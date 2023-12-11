@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
 import { message } from './entity/message';
+import { job_data } from './entity/job_data';
 
 const BOT_DEVICE = 'telegram';
 
@@ -189,11 +190,11 @@ export class AppService {
     }
   }
 
-  async getActions() {
+  async getActions(): Promise<boolean> {
     try {
       const x = await this.service.query(
-        `select x.id, x.user_id, x.action_id, x.created
-         from ( select b.id, b.user_id, b.created, b.action_id,
+        `select x.id, x.user_id, x.action_id, x.created, x.data
+         from ( select b.id, b.user_id, b.created, b.action_id, b.data
                        row_number() over (partition by b.user_id order by b.created) as rn
                 from   users a
                 inner  join command_queue b on (b.user_id = a.id)
@@ -201,7 +202,7 @@ export class AppService {
          where  x.rn = 1
          order  by x.created
          limit  10`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         await this.service.createQueryBuilder("users")
         .update(users)
@@ -211,18 +212,33 @@ export class AppService {
         })
         .where("id = :id", {id: x[i].user_id})
         .execute();
+        await this.service.createQueryBuilder("user_param")
+        .delete()
+        .from(user_param)
+        .where(`user_id = :id and type_id = 8`, {id: x[i].user_id})
+        .execute();
+        await this.service.createQueryBuilder("user_param")
+        .insert()
+        .into(user_param)
+        .values({
+          type_id: 8,
+          user_id: x[i].user_id,
+          value: x[i].data
+        })
+        .execute();
         await this.service.createQueryBuilder("command_queue")
         .delete()
         .from(command_queue)
         .where(`id  = :id`, {id: x[i].id})
         .execute();
       }
+      return true;
     } catch (error) {
       console.error(error);
     }
   }
 
-  async getVirtualMenu(menucallback) {
+  async getVirtualMenu(menucallback): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id as user_id, b.id, a.chat_id,
@@ -236,7 +252,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         const list = x[i].value.split(/,/);
         let menu = [];
@@ -261,12 +277,13 @@ export class AppService {
           });
         }
      }
+     return true;
   } catch (error) {
       console.error(error);
     }
   }
 
-  async getMenu(menucallback) {
+  async getMenu(menucallback): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id as user_id, b.id, a.chat_id,
@@ -280,7 +297,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         const y = await this.service.query(
        `select a.id, a.order_num, c.message
@@ -311,6 +328,7 @@ export class AppService {
           });
         }
      }
+     return true;
   } catch (error) {
       console.error(error);
     }
@@ -385,7 +403,7 @@ export class AppService {
     return z[0].id;
   }
 
-  async setParams() {
+  async setParams(): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id as user_id, b.id, b.paramtype_id, d.message
@@ -395,7 +413,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         const id = await this.getParamId(x[0].user_id, x[i].paramtype_id);
         if (id) {
@@ -429,12 +447,14 @@ export class AppService {
         .where("id = :id", {id: x[i].user_id})
         .execute();
      }
+     return true;
   } catch (error) {
       console.error(error);
     }
   }
 
-  async sendInfo(send) {
+  async sendInfo(send): Promise<boolean> {
+    // TODO: {PATTERNS}
     try {
       const x = await this.service.query(
         `select a.chat_id, b.id, coalesce(c.message, d.message) as message, 
@@ -448,7 +468,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         let message = x[i].message;
         if (x[i].data) {
@@ -469,12 +489,13 @@ export class AppService {
         .where("id = :id", {id: x[i].user_id})
         .execute();
       }
+      return true;
     } catch (error) {
       console.error(error);
     }
   }
 
-  async getParams(send) {
+  async getParams(send): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.chat_id, a.id, b.paramtype_id, coalesce(c.message, d.message) as message
@@ -486,7 +507,7 @@ export class AppService {
          where  a.scheduled < now() and a.wait_for is null
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         await send(x[i].chat_id, x[i].message);
         await this.service.createQueryBuilder("users")
@@ -499,17 +520,19 @@ export class AppService {
         .where("id = :id", {id: x[i].id})
         .execute();
      }
+     return true;
   } catch (error) {
       console.error(error);
     }
   }
 
-  async saveParam(username, data): Promise<boolean> {
+  async saveParam(username, data, chatId, msgId, del): Promise<boolean> {
     try {
       const x = await this.service.query(
-        `select a.id as user_id, a.wait_for, b.id, a.action_id
+        `select a.id as user_id, a.wait_for, b.id, a.action_id, c.is_hidden
          from   users a
          left   join user_param b on (b.user_id = a.id and b.type_id = a.wait_for)
+         inner  join param_type c on (c.id = a.wait_for)
          where  a.username = $1 and not a.wait_for is null`, [username]);
       if (!x || x.length == 0) return false;
       const action = await this.getNextAction(x[0].action_id, false);
@@ -532,6 +555,9 @@ export class AppService {
           value: data
         })
         .execute();
+      }
+      if (x[0].is_hidden) {
+        await del(chatId, msgId);
       }
       await this.service.createQueryBuilder("users")
       .update(users)
@@ -572,7 +598,7 @@ export class AppService {
     }
   }
 
-  async sendMessages(send) {
+  async sendMessages(send): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id, a.send_to, a.locale, a.data, b.is_admin
@@ -581,7 +607,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  1`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       if (x[0].send_to) {
         const y = await this.service.query(
           `select a.chat_id
@@ -621,6 +647,7 @@ export class AppService {
     })
     .where("id = :id", {id: x[0].id})
     .execute();
+    return true;
   } catch (error) {
       console.error(error);
     }
@@ -640,28 +667,7 @@ export class AppService {
   }
 
   async http(userId, requestId, actionId, type, url, body) {
-    if (type == 'GET') {
-        this.httpService.get(url)
-        .subscribe(async response => {
-          const result = await this.getResponse(requestId, response.status);
-          if (result) {
-             await this.parseResponse(userId, actionId, response, result);
-          } else {
-             console.info(response);
-          }
-        }, async error => {
-           if (!error.response) {
-             console.error(error);
-             return; 
-          }
-          const result = await this.getResponse(requestId, error.response.status);
-          if (result) {
-              await this.parseResponse(userId, actionId, error.response, result);
-          } else {
-            console.error(error);
-          }
-        });
-    } else {
+    if (type == 'POST') {
       this.httpService.post(url, body)
       .subscribe(async response => {
         const result = await this.getResponse(requestId, response.status);
@@ -685,7 +691,7 @@ export class AppService {
     }
   }
 
-  async httpRequest() {
+  async httpRequest(): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id as user_id, d.id as request_id, b.id as action_id, d.request_type,
@@ -698,7 +704,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let k = 0; k < x.length; k++) {
         let body = {};
         const y = await this.service.query(
@@ -714,8 +720,9 @@ export class AppService {
         }
         await this.http(x[k].user_id, x[k].request_id, x[k].action_id, x[k].request_type, x[k].url, body);
        }
+       return true;
     } catch (error) {
-      console.error(error);
+       console.error(error);
     }
   }
 
@@ -800,7 +807,7 @@ export class AppService {
     }
   }
 
-  async dbProc() {
+  async dbProc(): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id as user_id, d.id as proc_id, b.id as action_id, 
@@ -812,7 +819,7 @@ export class AppService {
          where  a.scheduled < now()
          order  by a.scheduled
          limit  100`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let k = 0; k < x.length; k++) {
         let params = [x[k].user_id];
         let sql = 'select ' + x[k].proc_name + '($1';
@@ -870,6 +877,7 @@ export class AppService {
         .where("id = :id", {id: x[k].user_id})
         .execute();
       }
+      return true;
     } catch (error) {
       console.error(error);
     }
@@ -901,6 +909,49 @@ export class AppService {
           value: paramValue
         })
         .execute();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async httpJob(id, type, url, dbproc, server_id) {
+    if (type == 'GET') {
+      this.httpService.get(url)      
+      .subscribe(async response => {
+        for (let i = 0; i < response.data.length; i++) {
+          await this.service.createQueryBuilder("job_data")
+          .insert()
+          .into(job_data)
+          .values({
+            job_id: id,
+            result_code: response.status,
+            data: response.data[i]
+          })
+          .execute();
+        }
+        const sql = 'select ' + dbproc + '($1,$2)';
+        await this.service.query(sql, [id, server_id]);
+      }, async error => {
+        if (!error.response) {
+           console.error(error);
+           return []; 
+        }
+      });
+    }
+  }
+
+  async runJob() {
+    try {
+      const x = await this.service.query(
+        `select a.id, b.request_type, d.api || b.url as url, c.name, d.id as server_id
+         from   job a
+         inner  join request b on (b.id = a.request_id)
+         inner  join dbproc c on (c.id = a.proc_id)
+         inner  join server d on (d.id = b.server_id)`);
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < x.length; i++) {
+         const r = await this.httpJob(x[i].id, x[i].request_type, x[i].url, x[i].name, x[i].server_id);
       }
     } catch (error) {
       console.error(error);

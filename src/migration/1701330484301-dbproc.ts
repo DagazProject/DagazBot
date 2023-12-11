@@ -104,9 +104,43 @@ export class dbproc1701330484301 implements MigrationInterface {
             return r;
           end;
           $$ language plpgsql VOLATILE`);
+          await queryRunner.query(`create or replace function getNotify(
+            in pId integer,
+            in pServer integer
+          ) returns integer
+          as $$
+          declare
+            x record;
+            z record;
+            s text;
+            u text;
+            c integer;
+          begin
+            select url into strict u from server where id = pServer;
+            for x in
+                select data->>'user' as username, data->>'sid' as sid, 
+                       data->>'url' as url, data->>'opponent' as player
+                from   job_data
+                where  job_id = pId and result_code = 200 and not data is null
+                order  by created
+            loop
+                for z in
+                    select a.user_id
+                    from   account a
+                    inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
+                    where  b.value = x.username and a.deleted is null
+                loop
+                    s := u || ',' || x.player || ',' || x.url || ',' || x.sid;
+                    insert into command_queue(user_id, action_id, data)
+                    values (z.user_id, 101, s);
+                end loop;
+            end loop;
+          end;
+          $$ language plpgsql VOLATILE`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function getNotify(integer, integer)`);
       await queryRunner.query(`drop function enterUrl(integer, integer)`);
       await queryRunner.query(`drop function chooseAccount(integer, text, integer)`);
       await queryRunner.query(`drop function createAccount(integer, integer)`);

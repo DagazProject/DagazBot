@@ -21,6 +21,9 @@ export class command_queue {
     @JoinColumn({ name: "action_id" })
     action: action;
 
+    @Column({ nullable: true, type: "text" })
+    data: string;
+
     @Column({default: () => "now()", nullable: false})
     created: Date;
 }

@@ -6,7 +6,8 @@ import { appProvider } from './app.provider';
 
 const TelegramBot = require('node-telegram-bot-api');
 
-const TIMEOUT = 500;
+const RUN_TIMEOUT = 500;
+const JOB_TIMEOUT = 60000;
 
 let app = null;
 let bot = null;
@@ -15,8 +16,13 @@ let commands = [];
 
 let run = async function() {
   if (await app.exec()) {
-      setTimeout(run, TIMEOUT);
+      setTimeout(run, RUN_TIMEOUT);
   }
+}
+
+let job = async function() {
+  await app.job();
+  setTimeout(job, JOB_TIMEOUT);
 }
 
 @Module({
@@ -30,23 +36,29 @@ export class AppModule {
     this.start();
     app = this;
     run();
+    job();
   }
 
   async start() {
     await this.appService.getToken(this, this.startCallback);
   }
 
+  async job() {
+    await this.appService.runJob();
+  }
+
   async exec() {
-    await this.appService.getActions();
-    await this.appService.getMenu(this.menuCallback);
-    await this.appService.getVirtualMenu(this.menuCallback);
-    await this.appService.getParams(this.sendCallback);
-    await this.appService.setParams();
-    await this.appService.sendInfo(this.sendCallback);
-    await this.appService.sendMessages(this.sendCallback);
-    await this.appService.httpRequest();
-    await this.appService.dbProc();
-    return true;
+    let r = false;
+    if (await this.appService.getActions()) r = true;
+    if (await this.appService.getMenu(this.menuCallback)) r = true;
+    if (await this.appService.getVirtualMenu(this.menuCallback)) r = true;
+    if (await this.appService.getParams(this.sendCallback)) r = true;
+    if (await this.appService.setParams()) r = true;
+    if (await this.appService.sendInfo(this.sendCallback)) r = true;
+    if (await this.appService.sendMessages(this.sendCallback)) r = true;
+    if (await this.appService.httpRequest()) r = true;
+    if (await this.appService.dbProc()) r = true;
+    return r;
   }
 
   async sendCallback(chatId: number, text: string) {
@@ -58,6 +70,12 @@ export class AppModule {
   async menuCallback(chatId: number, text: string, msg) {
     if (chatId) {
         await bot.sendMessage(chatId, text, msg);
+    }
+  }
+
+  async deleteMessage(chatId: number, msgId: number) {
+    if (chatId && msgId) {
+        await bot.deleteMessage(chatId, msgId);
     }
   }
 
@@ -85,10 +103,14 @@ export class AppModule {
         if (cmd !== null) {
             if (cmd == 'start') {
               await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
+              await run();
               return;
             }
         }
-        if (await self.appService.saveParam(msg.from.username, msg.text)) return;
+        if (await self.appService.saveParam(msg.from.username, msg.text, chatId, msg.message_id, self.deleteMessage)) {
+            await run();
+            return;
+        }
         if (cmd !== null) {
             for (let i = 0; i < commands.length; i++) {
                 if (commands[i].name == cmd) {
@@ -98,6 +120,7 @@ export class AppModule {
                         }
                     }
                     await self.appService.addAction(msg.from.username, commands[i].action);
+                    await run();
                     return;
                 }
             }
@@ -111,7 +134,7 @@ export class AppModule {
     bot.on('callback_query', async msg => {
       try {
         await self.appService.chooseItem(msg.from.username, msg.data);
-        await self.exec();
+        await run();
       } catch (error) {
         console.error(error);
       }
