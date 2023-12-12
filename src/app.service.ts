@@ -194,7 +194,7 @@ export class AppService {
     try {
       const x = await this.service.query(
         `select x.id, x.user_id, x.action_id, x.created, x.data
-         from ( select b.id, b.user_id, b.created, b.action_id, b.data
+         from ( select b.id, b.user_id, b.created, b.action_id, b.data,
                        row_number() over (partition by b.user_id order by b.created) as rn
                 from   users a
                 inner  join command_queue b on (b.user_id = a.id)
@@ -453,8 +453,24 @@ export class AppService {
     }
   }
 
+  async replacePatterns(user_id: number, s: string): Promise<string> {
+    let r = s.match(/{(\S+)}/);
+    while (r) {
+      const name = r[1];
+      const x = await this.service.query(
+        `select b.value
+         from   param_type a
+         left   join user_param b on (b.type_id = a.id and b.user_id = $1)
+         where  a.name = $2`, [user_id, name]);
+      let v = '';
+      if (x && x.length > 0) v = x[0].value;
+      s = s.replace('{' + name + '}', v);
+      r = s.match(/{(\S+)}/);
+    }
+    return s;
+  }
+
   async sendInfo(send): Promise<boolean> {
-    // TODO: {PATTERNS}
     try {
       const x = await this.service.query(
         `select a.chat_id, b.id, coalesce(c.message, d.message) as message, 
@@ -471,9 +487,10 @@ export class AppService {
       if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         let message = x[i].message;
-        if (x[i].data) {
+/*      if (x[i].data) {
             message = message + ' ' + x[i].data;
-        }
+        }*/
+        message = await this.replacePatterns(x[i].user_id, message);
         await send(x[i].chat_id, message);
         let action = x[i].follow_to;
         if (!action) {
@@ -509,7 +526,9 @@ export class AppService {
          limit  100`);
       if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
-        await send(x[i].chat_id, x[i].message);
+        let message = x[i].message;
+        message = await this.replacePatterns(x[i].id, message);
+        await send(x[i].chat_id, message);
         await this.service.createQueryBuilder("users")
         .update(users)
         .set({ 
@@ -941,7 +960,7 @@ export class AppService {
     }
   }
 
-  async runJob() {
+  async runJob(): Promise<boolean> {
     try {
       const x = await this.service.query(
         `select a.id, b.request_type, d.api || b.url as url, c.name, d.id as server_id
@@ -949,10 +968,11 @@ export class AppService {
          inner  join request b on (b.id = a.request_id)
          inner  join dbproc c on (c.id = a.proc_id)
          inner  join server d on (d.id = b.server_id)`);
-      if (!x || x.length == 0) return;
+      if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
          const r = await this.httpJob(x[i].id, x[i].request_type, x[i].url, x[i].name, x[i].server_id);
       }
+      return true;
     } catch (error) {
       console.error(error);
     }

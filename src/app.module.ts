@@ -21,7 +21,9 @@ let run = async function() {
 }
 
 let job = async function() {
-  await app.job();
+  if (await app.job()) {
+      run();
+  }
   setTimeout(job, JOB_TIMEOUT);
 }
 
@@ -44,7 +46,7 @@ export class AppModule {
   }
 
   async job() {
-    await this.appService.runJob();
+    return await this.appService.runJob();
   }
 
   async exec() {

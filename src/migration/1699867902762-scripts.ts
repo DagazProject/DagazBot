@@ -97,7 +97,7 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(502, 5, 501, 1, 201, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(503, 5, 501, 15, 11, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(504, 5, 503, 16, 1)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(506, 5, 504, 1, 11, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(506, 5, 504, 1, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, follow_to, order_num) values(505, 5, 501, 6, 2, 501, 3)`);
 
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(103, 'ru', '{PLAYER} ожидает вашего хода: {LINK}')`);
