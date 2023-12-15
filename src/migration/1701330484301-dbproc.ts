@@ -118,28 +118,232 @@ export class dbproc1701330484301 implements MigrationInterface {
           begin
             select url into strict u from server where id = pServer;
             for x in
-                select data->>'user' as username, data->>'sid' as sid, 
+                select id, data->>'user' as username, data->>'sid' as sid, 
                        data->>'url' as url, data->>'opponent' as player
                 from   job_data
                 where  job_id = pId and result_code = 200 and not data is null
+                and    server_id = pServer
                 order  by created
             loop
                 for z in
-                    select a.user_id
+                    select a.user_id, c.value as pass
                     from   account a
                     inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
+                    inner  join user_param c on (c.account_id = a.id and c.type_id = 3)
                     where  b.value = x.username and a.deleted is null
                 loop
                     s := u || ',' || x.player || ',' || x.url || ',' || x.sid;
                     insert into command_queue(user_id, action_id, data)
                     values (z.user_id, 101, s);
+                    delete from user_param where user_id = z.user_id and type_id in (2, 3);
+                    insert into user_param(type_id, user_id, value) values (2, z.user_id, x.username);
+                    insert into user_param(type_id, user_id, value) values (3, z.user_id, z.pass);
                 end loop;
+                delete from job_data where id = x.id;
             end loop;
+            return 1;
           end;
           $$ language plpgsql VOLATILE`);
-    }
+          await queryRunner.query(`create or replace function getCommands(
+            ) returns integer
+            as $$
+            declare
+              z record;
+              r integer default 0;
+            begin
+              for z in
+                  select x.id, x.user_id, x.action_id, x.created, x.data
+                  from ( select b.id, b.user_id, b.created, b.action_id, b.data,
+                                row_number() over (partition by b.user_id order by b.created) as rn
+                         from   users a
+                         inner  join command_queue b on (b.user_id = a.id)
+                         where  a.action_id is null ) x
+                  where  x.rn = 1
+                  order  by x.created
+              loop
+                update users set action_id = z.action_id, scheduled = now()
+                where  id = z.user_id;
+                delete from user_param where user_id = z.user_id and type_id = 8;
+                insert into user_param(type_id, user_id, value)
+                values (8, z.user_id, z.data);
+                delete from command_queue where id = z.id;
+                r := r + 1;
+              end loop;
+              return r;
+            end;
+            $$ language plpgsql VOLATILE`);
+            await queryRunner.query(`create or replace function createUser(
+              in pLogin text,
+              in pChatId bigint,
+              in pFirst text,
+              in pLast text,
+              in pLocale text
+            ) returns integer
+            as $$
+            declare
+               lUser integer;
+               lCn integer;
+            begin
+               select max(id) into lUser from users where username = pLogin;
+               if not r is null then
+                  update users set updated = now(), firstname = pFirst, lastname = pLast, chat_id = pChatId
+                  where id = lUser;
+               else
+                  insert into users (username, firstname, lastname, chat_id)
+                  values (pLogin, pFirst, pLast, pChatId)
+                  returning id into lUser;
+               end if;
+               update user_param set created = now(), value = pLocale where user_id = lUser and type_id = 7;
+               get diagnostics lCn = row_count;
+               if lCn = 0 then
+                  insert into user_param(type_id, user_id, value)
+                  values (7, lUser, pLocale);
+               end if;
+               insert into command_queue(user_id, action_id) values (lUser, 201);
+               return lUser;
+            end;
+            $$ language plpgsql VOLATILE`);
+            await queryRunner.query(`create or replace function setParams(
+              ) returns integer
+              as $$
+              declare
+                z record;
+                q record;
+                c integer default 0;
+                p integer;
+                n integer;
+                a integer;
+                s timestamp;
+              begin
+                for z in
+                    select a.id as user_id, b.id, b.paramtype_id, d.message
+                    from   users a
+                    inner  join action b on (b.id = a.action_id and b.type_id = 5)
+                    inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+                    where  a.scheduled < now()
+                    order  by a.scheduled
+                loop
+                    update user_param set created = now(), value = z.message 
+                    where user_id = z.user_id and type_id = z.paramtype_id;
+                    get diagnostics n = row_count;
+                    if n = 0 then
+                       insert into user_param(type_id, user_id, value)
+                       values (z.paramtype_id, z.user_id, z.message);
+                    end if;
+                    a := null;
+                    for q in
+                        select a.script_id, coalesce(a.parent_id, 0) as parent_id, a.order_num
+                        from   action a
+                        where  a.id = z.id
+                    loop
+                        select max(t.id) into a
+                        from ( select a.id, row_number() over (order by a.order_num) as rn
+                               from   action a
+                               where  a.script_id = q.script_id
+                               and    coalesce(a.parent_id, 0) = q.parent_id
+                               and    a.order_num > q.order_num ) t
+                        where t.rn = 1;
+                        if a is null then
+                           select max(t.id) into a
+                           from ( select a.id, row_number() over (order by a.order_num) as rn
+                                  from   action a
+                                  where  a.script_id = q.script_id
+                                  and    coalesce(a.parent_id, 0) = z.id ) t
+                           where t.rn = 1;
+                        end if;
+                    end loop;
+                    s := now();
+                    if a is null then
+                       s := null;
+                    end if;
+                    update users set scheduled = s, updated = now(), action_id = a
+                    where id = z.user_id;
+                    c := c + 1;
+                end loop;
+                return c;
+              end;
+              $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function setParamValue(
+                in pUser integer,
+                in pCode integer,
+                in pValue text
+              ) returns integer
+              as $$
+              declare
+                n integer;
+              begin
+                update user_param set created = now(), value = pValue
+                where user_id = pUser and type_id = pCode;
+                get diagnostics n = row_count;
+                if n = 0 then
+                   insert into user_param(type_id, user_id, value)
+                   values (pCode, pUser, pValue);
+                end if;
+                return n;
+              end;
+              $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function setActionByNum(
+                in pUser integer,
+                in pAction integer,
+                in pNum integer
+              ) returns integer
+              as $$
+              declare
+                z record;
+                c integer;
+              begin
+                for z in
+                    select a.id
+                    from   action a
+                    where  a.parent_id = pAction and a.order_num = pNum
+                loop
+                  update users set scheduled = now(), updated = now(), action_id = z.id
+                  where id = pUser;
+                  c := c + 1;
+                end loop;
+                return c;
+              end;
+              $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function gameUrl(
+                in pUser integer,
+                in pServer integer
+              ) returns json
+              as $$
+              declare
+                lToken text default null;
+                lUrl text default null;
+                lData text;
+                lPlayer text;
+                r json;
+                x record;
+              begin
+                select value into lToken from user_param where user_id = pUser and type_id = 11;
+                select value into lData from user_param where user_id = pUser and type_id = 8;
+                select url into lUrl from server where id = pServer;
+                lPlayer := split_part(lData, ',', 2);
+                for x in
+                    select lUrl || '/redirect/' || lToken || split_part(lData, ',', 3) || '|' || split_part(lData, ',', 4) as url,
+                           lPlayer as player,
+                           case
+                              when lUrl is null or lToken is null then 0
+                              else 1
+                           end as result
+                loop
+                    r := row_to_json(x);  
+                end loop;
+                delete from user_param where user_id = pUser and type_id in (2, 3, 11);
+                return r;
+              end;
+              $$ language plpgsql STABLE`);
+        }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function gameUrl(integer, integer)`);
+      await queryRunner.query(`drop function setActionByNum(integer, integer, integer)`);
+      await queryRunner.query(`drop function setParamValue(integer, integer, text)`);
+      await queryRunner.query(`drop function setParams()`);
+      await queryRunner.query(`drop function createUser(text, bigint, text, text, text)`);
+      await queryRunner.query(`drop function getCommands()`);
       await queryRunner.query(`drop function getNotify(integer, integer)`);
       await queryRunner.query(`drop function enterUrl(integer, integer)`);
       await queryRunner.query(`drop function chooseAccount(integer, text, integer)`);
