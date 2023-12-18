@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, Unique } from "typeorm";
 import { action } from "./action";
 import { param_type } from "./param_type";
-import { message } from "./message";
 
 @Entity()
 export class users {
