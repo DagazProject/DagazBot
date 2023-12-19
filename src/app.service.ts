@@ -390,26 +390,7 @@ export class AppService {
          where  a.username = $1 and not a.wait_for is null`, [username]);
       if (!x || x.length == 0) return false;
       const action = await this.getNextAction(x[0].action_id, false);
-      if (x[0].id) {
-        await this.service.createQueryBuilder("user_param")
-        .update(user_param)
-        .set({ 
-            created: new Date(),
-            value: data
-           })
-        .where("id = :id", {id: x[0].id})
-        .execute();
-      } else {
-        await this.service.createQueryBuilder("user_param")
-        .insert()
-        .into(user_param)
-        .values({
-          type_id: x[0].wait_for,
-          user_id: x[0].user_id,
-          value: data
-        })
-        .execute();
-      }
+      await this.service.query(`select setParamValue($1, $2, $3)`, [x[0].user_id, x[0].wait_for, data]);
       if (x[0].is_hidden) {
         await del(chatId, msgId);
       }
@@ -689,30 +670,7 @@ export class AppService {
   async setParam(username: string, paramId: number, paramValue: string) {
     try {
       const id = await this.getUserId(username);
-      const x = await this.service.query(
-        `select a.id
-         from   user_param a
-         where  a.user_id = $1 and a.type_id = $2`, [id, paramId]);
-      if (x && x.length > 0) {
-          await this.service.createQueryBuilder("user_param")
-          .update(user_param)
-          .set({ 
-              created: new Date(),
-              value: paramValue
-          })
-          .where("id = :id", {id: x[0].id})
-          .execute();
-      } else {
-        await this.service.createQueryBuilder("user_param")
-        .insert()
-        .into(user_param)
-        .values({
-          type_id: paramId,
-          user_id: id,
-          value: paramValue
-        })
-        .execute();
-      }
+      await this.service.query(`select setParamValue($1, $2, $3)`, [id, paramId, paramValue]);
     } catch (error) {
       console.error(error);
     }

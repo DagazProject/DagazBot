@@ -164,8 +164,10 @@ export class dbproc1701330484301 implements MigrationInterface {
                 update users set action_id = z.action_id, scheduled = now()
                 where  id = z.user_id;
                 delete from user_param where user_id = z.user_id and type_id = 8;
-                insert into user_param(type_id, user_id, value)
-                values (8, z.user_id, z.data);
+                if not z.data is null then
+                   insert into user_param(type_id, user_id, value)
+                   values (8, z.user_id, z.data);
+                end if;
                 delete from command_queue where id = z.id;
                 r := r + 1;
               end loop;
@@ -322,7 +324,7 @@ export class dbproc1701330484301 implements MigrationInterface {
                 select url into lUrl from server where id = pServer;
                 lPlayer := split_part(lData, ',', 2);
                 for x in
-                    select lUrl || '/redirect/' || lToken || split_part(lData, ',', 3) || '|' || split_part(lData, ',', 4) as url,
+                    select lUrl || '/redirect/' || lToken || '/' || split_part(lData, ',', 3) || '/' || split_part(lData, ',', 4) as url,
                            lPlayer as player,
                            case
                               when lUrl is null or lToken is null then 0
@@ -334,7 +336,7 @@ export class dbproc1701330484301 implements MigrationInterface {
                 delete from user_param where user_id = pUser and type_id in (2, 3, 11);
                 return r;
               end;
-              $$ language plpgsql STABLE`);
+              $$ language plpgsql VOLATILE`);
         }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
