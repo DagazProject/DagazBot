@@ -14,6 +14,8 @@ let bot = null;
 
 let commands = [];
 
+let isProcessing = false;
+
 let run = async function() {
   if (await app.exec()) {
       setTimeout(run, RUN_TIMEOUT);
@@ -46,10 +48,16 @@ export class AppModule {
   }
 
   async job() {
-    return await this.appService.runJob();
+    if (isProcessing) return false;
+    isProcessing = true;
+    const r = await this.appService.runJob();
+    isProcessing = false;
+    return r;
   }
 
   async exec() {
+    if (isProcessing) return false;
+    isProcessing = true;
     let r = false;
     if (await this.appService.getActions()) r = true;
     if (await this.appService.getMenu(this.menuCallback)) r = true;
@@ -60,6 +68,7 @@ export class AppModule {
     if (await this.appService.sendMessages(this.sendCallback)) r = true;
     if (await this.appService.httpRequest()) r = true;
     if (await this.appService.dbProc()) r = true;
+    isProcessing = false;
     return r;
   }
 

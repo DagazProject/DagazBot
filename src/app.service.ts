@@ -24,7 +24,8 @@ export class AppService {
          from   server a
          inner  join server_option b on (b.server_id = a.id)
          where  a.type_id = 1
-         order  by a.id`);
+         order  by a.id
+         limit  1`);
       if (x && x.length > 0) {
          callback(self, x[0].token);
       }
