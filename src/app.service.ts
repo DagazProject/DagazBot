@@ -5,6 +5,7 @@ import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
 import { message } from './entity/message';
 import { job_data } from './entity/job_data';
+import { client_message } from './entity/client_message';
 
 const BOT_DEVICE = 'telegram';
 
@@ -141,21 +142,23 @@ export class AppService {
               callback_data: list[j]
             }]);
          }
-         await this.service.createQueryBuilder("users")
-         .update(users)
-         .set({ 
-             scheduled: null
-         })
-         .where("id = :id", {id: x[i].user_id})
-         .execute();
+         let msg = null;
          if (menu.length > 0) {
-           await menucallback(x[i].chat_id, x[i].message, {
+           msg = await menucallback(x[i].chat_id, x[i].message, {
              reply_markup: {
                inline_keyboard: menu
              }
           });
         }
-     }
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            delete_message: msg.message_id,
+            scheduled: null
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
+    }
      return true;
   } catch (error) {
       console.error(error);
@@ -191,21 +194,23 @@ export class AppService {
                callback_data: y[j].id
             }]);
         }
-        await this.service.createQueryBuilder("users")
-        .update(users)
-        .set({ 
-            action_id: null,
-            scheduled: null
-        })
-        .where("id = :id", {id: x[i].user_id})
-        .execute();
+        let msg = null;
         if (menu.length > 0) {
-           await menucallback(x[i].chat_id, x[i].message, {
+           msg = await menucallback(x[i].chat_id, x[i].message, {
              reply_markup: {
                inline_keyboard: menu
              }
           });
         }
+        await this.service.createQueryBuilder("users")
+        .update(users)
+        .set({ 
+            delete_message: msg.message_id,
+            action_id: null,
+            scheduled: null
+        })
+        .where("id = :id", {id: x[i].user_id})
+        .execute();
      }
      return true;
   } catch (error) {
@@ -213,16 +218,17 @@ export class AppService {
     }
   }
 
-  async chooseItem(username, data) {
+  async chooseItem(username, data, chatId, del) {
     try {
       const x = await this.service.query(
-        `select a.id, b.paramtype_id, b.follow_to
+        `select a.id, b.paramtype_id, b.follow_to, a.delete_message
          from   users a
          left   join action b on (b.id = a.action_id and b.type_id = 6)
          where  a.username = $1`, [username]);
       if (!x || x.length == 0) return;
       let action = x[0].follow_to;
       if (x[0].paramtype_id) {
+        if (!x[0].paramtype_id) return;
         await this.service.createQueryBuilder("user_param")
         .update(user_param)
         .set({ 
@@ -242,9 +248,13 @@ export class AppService {
            action = y[0].id;
         }
       }
+      if (x[0].delete_message) {
+        del(chatId, x[0].delete_message);
+      }
       await this.service.createQueryBuilder("users")
       .update(users)
       .set({ 
+          delete_message: null,
           scheduled: action ? new Date() : null,
           updated: new Date(),
           action_id: action
@@ -411,9 +421,20 @@ export class AppService {
     }
   }
 
-  async saveMessage(username: string, id: number, data: string) {
+  async saveMessage(username: string, id: number, data: string, reply) {
     try {
-      await this.service.query(`select saveMessage($1, $2, $3)`, [username, id, data]);
+      let reply_id = null;
+      if (reply) {
+          const x = await this.service.query(
+            `select b.message_id
+             from   client_message a
+             inner  join message b on (b.id = a.parent_id)
+             where  a.message_id = $1`, [reply.message_id]);
+          if (x && x.length > 0) {
+             reply_id = x[0].message_id;
+          }
+        }
+      await this.service.query(`select saveMessage($1, $2, $3, $4)`, [username, id, data, reply_id]);
     } catch (error) {
       console.error(error);
     }
@@ -422,7 +443,7 @@ export class AppService {
   async sendMessages(send): Promise<boolean> {
     try {
       const x = await this.service.query(
-        `select a.id, a.send_to, a.locale, a.data, b.is_admin
+        `select a.id, a.send_to, a.locale, a.data, b.is_admin, a.reply_for
          from   message a
          left   join users b on (b.id = a.user_id)
          where  a.scheduled < now()
@@ -431,32 +452,69 @@ export class AppService {
       if (!x || x.length == 0) return false;
       if (x[0].send_to) {
         const y = await this.service.query(
-          `select a.chat_id
+          `select a.chat_id, b.id
            from   users a
-           where  a.id = $1`, [x[0].send_to]);
-           if (y && y.length > 0) {
-              await send(y[0].chat_id, x[0].data);
+           left   join message b on (b.user_id = a.id and b.message_id = $1)
+           where  a.id = $2`, [x[0].reply_for, x[0].send_to]);
+           if (y && y.length > 0 && (!x[0].reply_for || y[0].id)) {
+             const msg = await send(y[0].chat_id, x[0].data, x[0].reply_for);
+             if (msg) {
+              await this.service.createQueryBuilder("client_message")
+              .insert()
+              .into(client_message)
+              .values({
+                parent_id: x[0].id,
+                message_id: msg.message_id
+              })
+              .execute();
            }
+       }
       } else {
         if (x[0].is_admin) {
             const y = await this.service.query(
-              `select a.chat_id
+              `select a.chat_id, c.id
                from   users a
                left   join user_param b on (b.user_id = a.id and type_id = 7)
-               where  coalesce(b.value, 'en') = $1 `, [x[0].locale]);
+               left   join message c on (c.user_id = a.id and c.message_id = $1)
+               where  coalesce(b.value, 'en') = $2 `, [x[0].reply_for, x[0].locale]);
             if (y && y.length > 0) {
                for (let i = 0; i < y.length; i++) {
-                await send(y[i].chat_id, x[0].data);
+                if (!x[0].reply_for || y[i].id) {
+                  const msg = await send(y[i].chat_id, x[0].data, x[0].reply_for);
+                  if (msg) {
+                    await this.service.createQueryBuilder("client_message")
+                    .insert()
+                    .into(client_message)
+                    .values({
+                      parent_id: x[0].id,
+                      message_id: msg.message_id
+                    })
+                    .execute();
+                  }
+                }
               }
             }
         } else {
             const y = await this.service.query(
-              `select a.chat_id
+              `select a.chat_id, b.id
                from   users a
-               where  a.is_admin`);
+               left   join message b on (b.user_id = a.id and b.message_id = $1)
+               where  a.is_admin`, [x[0].reply_for]);
             if (y && y.length > 0) {
                for (let i = 0; i < y.length; i++) {
-                 await send(y[i].chat_id, x[0].data);
+                if (!x[0].reply_for || y[i].id) {
+                  const msg = await send(y[i].chat_id, x[0].data, x[0].reply_for);
+                  if (msg) {
+                    await this.service.createQueryBuilder("client_message")
+                    .insert()
+                    .into(client_message)
+                    .values({
+                      parent_id: x[0].id,
+                      message_id: msg.message_id
+                    })
+                    .execute();
+                  }
+                }
                }
             }
         }

@@ -72,27 +72,50 @@ export class AppModule {
     return r;
   }
 
-  async sendCallback(chatId: number, text: string) {
+  async sendCallback(chatId: number, text: string, reply: number) {
+    let r = null;
     if (chatId) {
-        await bot.sendMessage(chatId, text);
+        try {
+          if (reply) {
+            r = await bot.sendMessage(chatId, text, {
+              reply_to_message_id: reply
+            });
+          } else {
+            r = await bot.sendMessage(chatId, text);
+          }
+        } catch (error) {
+          console.error(error);
+        }
     }
+    return r;
   }
 
   async menuCallback(chatId: number, text: string, msg) {
+    let r = null;
     if (chatId) {
-        await bot.sendMessage(chatId, text, msg);
+      try {
+        r = await bot.sendMessage(chatId, text, msg);
+      } catch (error) {
+        console.error(error);
+      }
     }
+    return r;
   }
 
   async deleteMessage(chatId: number, msgId: number) {
     if (chatId && msgId) {
-        await bot.deleteMessage(chatId, msgId);
+        try {
+          await bot.deleteMessage(chatId, msgId);
+        } catch (error) {
+          console.error(error);
+        }
     }
   }
 
   startCallback(self: AppModule, token: string) {
     bot = new TelegramBot(token, {polling: true});
     bot.on('text', async msg => {
+//    console.log(msg);
       try {
         const chatId = msg.chat.id;
         commands = await self.appService.getCommands();
@@ -136,20 +159,20 @@ export class AppModule {
                 }
             }
         }
-        await self.appService.saveMessage(msg.from.username, msg.message_id, msg.text);
+        await self.appService.saveMessage(msg.from.username, msg.message_id, msg.text, msg.reply_to_message);
       } catch (error) {
             console.error(error);
       }
-//    console.log(msg);
     });
     bot.on('callback_query', async msg => {
+//    console.log(msg);
       try {
-        await self.appService.chooseItem(msg.from.username, msg.data);
+        const chatId = msg.from.id;
+        await self.appService.chooseItem(msg.from.username, msg.data, chatId, self.deleteMessage);
         await run();
       } catch (error) {
         console.error(error);
       }
-//    console.log(msg);
     });
   }
 }

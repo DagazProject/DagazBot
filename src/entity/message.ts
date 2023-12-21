@@ -20,12 +20,8 @@ export class message {
     @JoinColumn({ name: "send_to" })
     send: users;
 
-    @Index()
-    @Column({ nullable: true })
+    @Column({ type: "bigint", nullable: true })
     reply_for: number;
-    @ManyToOne(type => message)
-    @JoinColumn({ name: "reply_for" })
-    reply: message;
 
     @Column({ type: "varchar", length: 5 })
     locale: string;

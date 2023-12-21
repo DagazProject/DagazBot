@@ -47,4 +47,7 @@ export class users {
     @Index()
     @Column({ nullable: true })
     scheduled: Date;
+
+    @Column({ type: "bigint", nullable: true })
+    delete_message: number;
 }

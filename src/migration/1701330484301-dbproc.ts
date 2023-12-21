@@ -328,9 +328,34 @@ export class dbproc1701330484301 implements MigrationInterface {
                 return r;
               end;
               $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function saveMessage(
+                in pLogin text,
+                in pId bigint,
+                in pData text,
+                in pReply bigint
+              ) returns json
+              as $$
+              declare
+                z record;
+                c integer;
+              begin
+                for z in
+                    select a.id, coalesce(b.value, 'en') as locale
+                    from   users a
+                    left   join user_param b on (b.user_id = a.id and type_id = 7)
+                    where  a.username = pLogin
+                loop
+                    insert into message(user_id, locale, message_id, data, reply_for)
+                    values (z.id, z.locale, pId, pData, pReply);
+                    c := c + 1;
+                end loop;
+                return c;
+              end;
+              $$ language plpgsql VOLATILE`);
         }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function saveMessage(text, bigint, text, bigint)`);
       await queryRunner.query(`drop function gameUrl(integer, integer)`);
       await queryRunner.query(`drop function setActionByNum(integer, integer, integer)`);
       await queryRunner.query(`drop function setParamValue(integer, integer, text)`);
