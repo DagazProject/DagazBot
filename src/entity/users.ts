@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, Unique } from "typeorm";
-import { action } from "./action";
-import { param_type } from "./param_type";
+import { common_context } from "./common_context";
 
 @Entity()
 export class users {
@@ -12,17 +11,10 @@ export class users {
 
     @Index()
     @Column({ nullable: true })
-    action_id: number;
-    @ManyToOne(type => action)
-    @JoinColumn({ name: "action_id" })
-    action: action;
-
-    @Index()
-    @Column({ nullable: true })
-    wait_for: number;
-    @ManyToOne(type => param_type)
-    @JoinColumn({ name: "wait_for" })
-    wait: param_type;
+    context_id: number;
+    @ManyToOne(type => common_context)
+    @JoinColumn({ name: "context_id" })
+    context: common_context;
 
     @Index()
     @Unique(["username"])
@@ -43,11 +35,4 @@ export class users {
 
     @Column({default: () => "now()", nullable: false})
     updated: Date;
-
-    @Index()
-    @Column({ nullable: true })
-    scheduled: Date;
-
-    @Column({ type: "bigint", nullable: true })
-    delete_message: number;
 }

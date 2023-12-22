@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { users } from "./users";
 import { action } from "./action";
+import { common_context } from "./common_context";
 
 @Entity()
 export class command_queue {
@@ -9,10 +9,10 @@ export class command_queue {
 
     @Index()
     @Column({ nullable: false })
-    user_id: number;
-    @ManyToOne(type => users)
-    @JoinColumn({ name: "user_id" })
-    user: users;
+    context_id: number;
+    @ManyToOne(type => common_context)
+    @JoinColumn({ name: "context_id" })
+    context: common_context;
 
     @Index()
     @Column({ nullable: false })

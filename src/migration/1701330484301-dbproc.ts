@@ -117,15 +117,17 @@ export class dbproc1701330484301 implements MigrationInterface {
                 order  by created
             loop
                 for z in
-                    select a.user_id, c.value as pass
+                    select x.id as context_id, a.user_id, c.value as pass
                     from   account a
+                    inner  join users u on (u.id = a.user_id)
+                    inner  join common_context x on (x.id = u.context_id)
                     inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
                     inner  join user_param c on (c.account_id = a.id and c.type_id = 3)
                     where  b.value = x.username and a.deleted is null
                 loop
                     s := u || ',' || x.player || ',' || x.url || ',' || x.sid;
-                    insert into command_queue(user_id, action_id, data)
-                    values (z.user_id, 101, s);
+                    insert into command_queue(context_id, action_id, data)
+                    values (z.context_id, 101, s);
                     delete from user_param where user_id = z.user_id and type_id in (2, 3);
                     insert into user_param(type_id, user_id, value) values (2, z.user_id, x.username);
                     insert into user_param(type_id, user_id, value) values (3, z.user_id, z.pass);
@@ -143,17 +145,18 @@ export class dbproc1701330484301 implements MigrationInterface {
               r integer default 0;
             begin
               for z in
-                  select x.id, x.user_id, x.action_id, x.created, x.data
-                  from ( select b.id, b.user_id, b.created, b.action_id, b.data,
-                                row_number() over (partition by b.user_id order by b.created) as rn
-                         from   users a
-                         inner  join command_queue b on (b.user_id = a.id)
-                         where  a.action_id is null ) x
+                  select x.id, x.context_id, x.user_id, x.action_id, x.created, x.data
+                  from ( select b.id, a.context_id, a.id as user_id, b.created, b.action_id, b.data,
+                                row_number() over (partition by b.context_id order by b.created) as rn
+                         from   common_context c
+                         inner  join users a on (a.context_id = c.id)
+                         inner  join command_queue b on (b.context_id = c.id)
+                         where  c.action_id is null ) x
                   where  x.rn = 1
                   order  by x.created
               loop
-                update users set action_id = z.action_id, scheduled = now()
-                where  id = z.user_id;
+                update common_context set action_id = z.action_id, scheduled = now()
+                where  id = z.context_id;
                 delete from user_param where user_id = z.user_id and type_id = 8;
                 if not z.data is null then
                    insert into user_param(type_id, user_id, value)
@@ -176,14 +179,17 @@ export class dbproc1701330484301 implements MigrationInterface {
             declare
                lUser integer;
                lCn integer;
+               lCtx integer;
             begin
                select max(id) into lUser from users where username = pLogin;
                if not lUser is null then
                   update users set updated = now(), firstname = pFirst, lastname = pLast, chat_id = pChatId
                   where id = lUser;
                else
-                  insert into users (username, firstname, lastname, chat_id)
-                  values (pLogin, pFirst, pLast, pChatId)
+                  insert into common_context default values
+                  returning id into lCtx;
+                  insert into users (username, firstname, lastname, chat_id, context_id)
+                  values (pLogin, pFirst, pLast, pChatId, lCtx)
                   returning id into lUser;
                end if;
                update user_param set created = now(), value = pLocale where user_id = lUser and type_id = 7;
@@ -192,7 +198,7 @@ export class dbproc1701330484301 implements MigrationInterface {
                   insert into user_param(type_id, user_id, value)
                   values (7, lUser, pLocale);
                end if;
-               insert into command_queue(user_id, action_id) values (lUser, 201);
+               insert into command_queue(context_id, action_id) values (lCtx, 201);
                return lUser;
             end;
             $$ language plpgsql VOLATILE`);
@@ -209,12 +215,14 @@ export class dbproc1701330484301 implements MigrationInterface {
                 s timestamp;
               begin
                 for z in
-                    select a.id as user_id, b.id, b.paramtype_id, d.message
+                    select a.id as user_id, b.id, b.paramtype_id, d.message,
+                           x.id as context_id
                     from   users a
-                    inner  join action b on (b.id = a.action_id and b.type_id = 5)
+                    inner  join common_context x on (x.id = a.context_id)
+                    inner  join action b on (b.id = x.action_id and b.type_id = 5)
                     inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
-                    where  a.scheduled < now()
-                    order  by a.scheduled
+                    where  x.scheduled < now()
+                    order  by x.scheduled
                 loop
                     update user_param set created = now(), value = z.message 
                     where user_id = z.user_id and type_id = z.paramtype_id;
@@ -249,8 +257,8 @@ export class dbproc1701330484301 implements MigrationInterface {
                     if a is null then
                        s := null;
                     end if;
-                    update users set scheduled = s, updated = now(), action_id = a
-                    where id = z.user_id;
+                    update common_context set scheduled = s, updated = now(), action_id = a
+                    where id = z.context_id;
                     c := c + 1;
                 end loop;
                 return c;
@@ -284,15 +292,18 @@ export class dbproc1701330484301 implements MigrationInterface {
               declare
                 z record;
                 c integer;
+                lCtx integer;
               begin
+                select context_id into strict lCtx 
+                from users where id = pUser;
                 for z in
                     select a.id
                     from   action a
                     where  a.parent_id = pAction and a.order_num = pNum
                 loop
-                  update users set scheduled = now(), updated = now(), action_id = z.id
-                  where id = pUser;
-                  c := c + 1;
+                    update common_context set scheduled = now(), updated = now(), action_id = z.id
+                    where id = lCtx;
+                    c := c + 1;
                 end loop;
                 return c;
               end;

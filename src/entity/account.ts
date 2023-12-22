@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn } from "typeorm";
 import { server } from "./server";
 import { users } from "./users";
+import { common_context } from "./common_context";
 
 @Entity()
 export class account {
@@ -20,6 +21,13 @@ export class account {
     @ManyToOne(type => server)
     @JoinColumn({ name: "server_id" })
     server: server;
+
+    @Index()
+    @Column({ nullable: true })
+    context_id: number;
+    @ManyToOne(type => common_context)
+    @JoinColumn({ name: "context_id" })
+    context: common_context;
 
     @Column({default: () => "now()", nullable: false})
     created: Date;
