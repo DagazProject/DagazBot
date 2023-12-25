@@ -48,9 +48,10 @@ export class AppModule {
   }
 
   async job() {
+    let r = false;
     if (isProcessing) return false;
     isProcessing = true;
-    const r = await this.appService.runJob();
+    r = await this.appService.runJob();
     isProcessing = false;
     return r;
   }

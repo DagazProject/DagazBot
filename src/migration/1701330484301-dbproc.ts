@@ -117,10 +117,10 @@ export class dbproc1701330484301 implements MigrationInterface {
                 order  by created
             loop
                 for z in
-                    select x.id as context_id, a.user_id, c.value as pass
+                    select y.id as context_id, a.user_id, c.value as pass
                     from   account a
                     inner  join users u on (u.id = a.user_id)
-                    inner  join common_context x on (x.id = u.context_id)
+                    inner  join common_context y on (y.id = u.context_id)
                     inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
                     inner  join user_param c on (c.account_id = a.id and c.type_id = 3)
                     where  b.value = x.username and a.deleted is null
@@ -179,15 +179,17 @@ export class dbproc1701330484301 implements MigrationInterface {
             declare
                lUser integer;
                lCn integer;
-               lCtx integer;
+               lCtx integer default null;
             begin
-               select max(id) into lUser from users where username = pLogin;
+               select max(id), max(context_id) into lUser, lCtx from users where username = pLogin;
+               if lCtx is null then
+                  insert into common_context default values
+                  returning id into lCtx;
+               end if;
                if not lUser is null then
                   update users set updated = now(), firstname = pFirst, lastname = pLast, chat_id = pChatId
                   where id = lUser;
                else
-                  insert into common_context default values
-                  returning id into lCtx;
                   insert into users (username, firstname, lastname, chat_id, context_id)
                   values (pLogin, pFirst, pLast, pChatId, lCtx)
                   returning id into lUser;
