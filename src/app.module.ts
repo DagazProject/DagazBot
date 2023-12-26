@@ -137,12 +137,12 @@ export class AppModule {
         }
         if (cmd !== null) {
             if (cmd == 'start') {
-              await self.appService.createUser(msg.from.username, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
+              await self.appService.createUser(msg.from.username ? msg.from.username : msg.from.id, msg.from.id, chatId, msg.from.first_name, msg.from.last_name, msg.from.language_code);
               await run();
               return;
             }
         }
-        if (await self.appService.saveParam(msg.from.username, msg.text, chatId, msg.message_id, self.deleteMessage)) {
+        if (await self.appService.saveParam(msg.from.username ? msg.from.username : msg.from.id, msg.text, chatId, msg.message_id, self.deleteMessage)) {
             await run();
             return;
         }
@@ -151,16 +151,16 @@ export class AppModule {
                 if (commands[i].name == cmd) {
                     for (let j = 0; j < commands[i].params.length; j++) {
                         if (r[j + 2]) {
-                            await self.appService.setParam(msg.from.username, commands[i].params[j], r[j + 2]);
+                            await self.appService.setParam(msg.from.username ? msg.from.username : msg.from.id, commands[i].params[j], r[j + 2]);
                         }
                     }
-                    await self.appService.addAction(msg.from.username, commands[i].action);
+                    await self.appService.addAction(msg.from.username ? msg.from.username : msg.from.id, commands[i].action);
                     await run();
                     return;
                 }
             }
         }
-        await self.appService.saveMessage(msg.from.username, msg.message_id, msg.text, msg.reply_to_message);
+        await self.appService.saveMessage(msg.from.username ? msg.from.username : msg.from.id, msg.message_id, msg.text, msg.reply_to_message);
       } catch (error) {
             console.error(error);
       }
@@ -169,7 +169,7 @@ export class AppModule {
 //    console.log(msg);
       try {
         const chatId = msg.from.id;
-        await self.appService.chooseItem(msg.from.username, msg.data, chatId, self.deleteMessage);
+        await self.appService.chooseItem(msg.from.username ? msg.from.username : msg.from.id, msg.data, chatId, self.deleteMessage);
         await run();
       } catch (error) {
         console.error(error);

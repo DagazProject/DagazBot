@@ -17,9 +17,18 @@ export class dbproc1701330484301 implements MigrationInterface {
             select value into strict pLogin
             from   user_param
             where  user_id = pUser and type_id = 2;
-            insert into account(user_id, server_id)
-            values (pUser, pServer)
-            returning id into pAccount;  
+            select max(a.id) into pAccount
+            from   account a
+            inner  join user_param b on (b.account_id = a.id)
+            where  a.user_id = pUser and b.value = pLogin;
+            if pAccount is null then
+               insert into account(user_id, server_id)
+               values (pUser, pServer)
+               returning id into pAccount;  
+            else
+               delete from user_param
+               where account_id = pAccount and type_id in (2, 3, 4);
+            end if;
             update user_param set account_id = pAccount, user_id = null
             where user_id = pUser and type_id in (2, 3, 4);
             for x in
@@ -170,6 +179,7 @@ export class dbproc1701330484301 implements MigrationInterface {
             $$ language plpgsql VOLATILE`);
             await queryRunner.query(`create or replace function createUser(
               in pLogin text,
+              in pUserId bigint,
               in pChatId bigint,
               in pFirst text,
               in pLast text,
@@ -187,11 +197,11 @@ export class dbproc1701330484301 implements MigrationInterface {
                   returning id into lCtx;
                end if;
                if not lUser is null then
-                  update users set updated = now(), firstname = pFirst, lastname = pLast, chat_id = pChatId
+                  update users set updated = now(), firstname = pFirst, lastname = pLast, chat_id = pChatId, user_id = pUserId
                   where id = lUser;
                else
-                  insert into users (username, firstname, lastname, chat_id, context_id)
-                  values (pLogin, pFirst, pLast, pChatId, lCtx)
+                  insert into users (username, firstname, lastname, chat_id, user_id, context_id)
+                  values (pLogin, pFirst, pLast, pChatId, pUserId, lCtx)
                   returning id into lUser;
                end if;
                update user_param set created = now(), value = pLocale where user_id = lUser and type_id = 7;

@@ -9,6 +9,9 @@ export class users {
     @Column({ nullable: false,  type: "boolean", default: false })
     is_admin: boolean;
 
+    @Column({ type: "bigint", nullable: true })
+    user_id: number;
+
     @Index()
     @Column({ nullable: true })
     context_id: number;

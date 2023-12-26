@@ -112,9 +112,9 @@ export class AppService {
     }
   }
 
-  async createUser(login: string, chat: number, first_name: string, last_name: string, locale: string) {
+  async createUser(login: string, user: number, chat: number, first_name: string, last_name: string, locale: string) {
     try {
-      await this.service.query(`select createUser($1, $2, $3, $4, $5)`, [login, chat, first_name, last_name, locale]);
+      await this.service.query(`select createUser($1, $2, $3, $4, $5, $6)`, [login, user, chat, first_name, last_name, locale]);
     } catch (error) {
       console.error(error);
     }
