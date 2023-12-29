@@ -149,12 +149,16 @@ export class AppModule {
         if (cmd !== null) {
             for (let i = 0; i < commands.length; i++) {
                 if (commands[i].name == cmd) {
+                    let params = [];
                     for (let j = 0; j < commands[i].params.length; j++) {
                         if (r[j + 2]) {
-                            await self.appService.setParam(msg.from.username ? msg.from.username : msg.from.id, commands[i].params[j], r[j + 2]);
+                            params.push({
+                                id: commands[i].params[j],
+                                value: r[j + 2]
+                            });
                         }
                     }
-                    await self.appService.addAction(msg.from.username ? msg.from.username : msg.from.id, commands[i].action);
+                    await self.appService.addAction(msg.from.username ? msg.from.username : msg.from.id, commands[i].action, params);
                     await run();
                     return;
                 }

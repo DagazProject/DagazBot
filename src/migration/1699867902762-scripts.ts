@@ -13,14 +13,27 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into param_type(id, name) values(8, 'DATA')`);
         await queryRunner.query(`insert into param_type(id, name) values(9, 'PLAYER')`);
         await queryRunner.query(`insert into param_type(id, name) values(11, 'LINK')`);
+        await queryRunner.query(`insert into param_type(id, name, is_hidden) values(12, 'Новый пароль', true)`); 
+
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(1, 8)`); 
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(2, 2)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(3, 3)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(4, 4)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(5, 5)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(6, 6)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(7, 9)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(8, 11)`);
+        await queryRunner.query(`insert into clear_params(id, paramtype_id) values(9, 12)`);
 
         await queryRunner.query(`insert into script(id, name) values(1, 'Уведомление об ожидании хода')`);
         await queryRunner.query(`insert into script(id, name) values(2, 'Account registration', 'start')`);
         await queryRunner.query(`insert into script(id, name, command) values(3, 'English', 'en')`);
         await queryRunner.query(`insert into script(id, name, command) values(4, 'Russian', 'ru')`);
         await queryRunner.query(`insert into script(id, name, command) values(5, 'Enter to Dagaz', 'enter')`);
+        await queryRunner.query(`insert into script(id, name, command) values(6, 'Edit profile', 'edit')`); 
 
         await queryRunner.query(`insert into script_param(id, script_id, paramtype_id, order_num) values(1, 5, 2, 1)`);
+        await queryRunner.query(`insert into script_param(id, script_id, paramtype_id, order_num) values(2, 6, 2, 1)`); 
 
         await queryRunner.query(`insert into action_type(id, name) values(1, 'Вывод текста')`);
         await queryRunner.query(`insert into action_type(id, name) values(2, 'Ввод текста')`);
@@ -36,11 +49,15 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action_type(id, name) values(15, 'Запросить тикет')`);
         await queryRunner.query(`insert into action_type(id, name) values(16, 'Получить url для входа на сервер')`);
         await queryRunner.query(`insert into action_type(id, name) values(17, 'Получить url для входа в игру')`);
+        await queryRunner.query(`insert into action_type(id, name) values(18, 'Выбрать учётную запись')`); 
+        await queryRunner.query(`insert into action_type(id, name) values(19, 'Внести изменения в профиль')`); 
+        await queryRunner.query(`insert into action_type(id, name) values(20, 'Сохранить изменения профиля')`); 
 
         await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(1, 2, 10, '/auth/user', 'POST')`);
         await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(2, 2, 11, '/auth/login', 'POST')`);
         await queryRunner.query(`insert into request(id, server_id, url, request_type) values(3, 2, '/session/notify', 'GET')`);
         await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(4, 2, 15, '/auth/ticket', 'POST')`);
+        await queryRunner.query(`insert into request(id, server_id, actiontype_id, url, request_type) values(5, 2, 19, '/users/edit', 'POST')`); 
 
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(1, 1, 2, 'name')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(2, 1, 2, 'username')`);
@@ -52,18 +69,29 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into request_param(id, request_id, param_name, param_value) values(8, 2, 4, 'device', 'telegram')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(9, 4, 2, 'username')`);
         await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(10, 4, 3, 'password')`);
+        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(11, 5, 9, 'name')`); 
+        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(12, 5, 2, 'username')`);
+        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(13, 5, 3, 'password')`);
+        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(14, 5, 4, 'email')`);
+        await queryRunner.query(`insert into request_param(id, request_id, paramtype_id, param_name) values(15, 5, 12, 'newpass')`);
 
         await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(1, 12, 'createAccount')`);
         await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(2, 14, 'chooseAccount')`);
         await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(3, 16, 'enterUrl')`);
         await queryRunner.query(`insert into dbproc(id, name) values(4, 'getNotify')`);
         await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(5, 17, 'gameUrl')`);
+        await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(6, 18, 'chooseAccount')`); 
+        await queryRunner.query(`insert into dbproc(id, actiontype_id, name) values(7, 20, 'saveProfile')`); 
 
         await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(1, 1, '2', 2)`);
         await queryRunner.query(`insert into db_param(id, proc_id, paramtype_id, order_num) values(2, 2, 2, 2)`);
         await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(3, 2, '2', 3)`);
         await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(4, 3, '2', 2)`);
         await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(5, 5, '2', 2)`);
+        await queryRunner.query(`insert into db_param(id, proc_id, paramtype_id, order_num) values(6, 6, 2, 2)`); 
+        await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(7, 6, '2', 3)`);
+        await queryRunner.query(`insert into db_param(id, proc_id, paramtype_id, order_num) values(8, 7, 2, 2)`);
+        await queryRunner.query(`insert into db_param(id, proc_id, value, order_num) values(9, 7, '2', 3)`);
 
         await queryRunner.query(`insert into db_result(id, proc_id, name) values(1, 2, 'result')`);
         await queryRunner.query(`insert into db_result(id, proc_id, name, paramtype_id) values(2, 2, 'login', 2)`);
@@ -74,6 +102,10 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into db_result(id, proc_id, name, paramtype_id) values(7, 5, 'player', 9)`);
         await queryRunner.query(`insert into db_result(id, proc_id, name) values(8, 5, 'result')`);
         await queryRunner.query(`insert into db_result(id, proc_id, name) values(9, 1, 'result')`);
+        await queryRunner.query(`insert into db_result(id, proc_id, name) values(10, 6, 'result')`); 
+        await queryRunner.query(`insert into db_result(id, proc_id, name, paramtype_id) values(11, 6, 'login', 2)`);
+        await queryRunner.query(`insert into db_result(id, proc_id, name, paramtype_id) values(12, 6, 'password', 3)`);
+        await queryRunner.query(`insert into db_result(id, proc_id, name) values(13, 7, 'result')`);
 
         await queryRunner.query(`insert into job(id, name, request_id, proc_id) values(1, 'notify', 3, 4)`);
 
@@ -84,14 +116,14 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(205, 2, 202, 2, 3, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(206, 2, 202, 2, 4, 3)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(207, 2, 202, 10, 4)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(208, 2, 207, 12, 5, 1)`); // 201
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(210, 2, 207, 1, 201, 2)`); // 409
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(208, 2, 207, 12, 5, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(210, 2, 207, 1, 201, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(217, 2, 208, 1, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id paramtype_id, order_num) values(211, 2, 203, 2, 2, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(212, 2, 203, 2, 3, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(213, 2, 203, 11, 3)`);
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(214, 2, 213, 12, 5, 1)`); // 200
-        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(216, 2, 213, 1, 201, 2)`); // 401
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(214, 2, 213, 12, 5, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(216, 2, 213, 1, 201, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(218, 2, 214, 1, 1)`);
         await queryRunner.query(`insert into action(id, script_id, type_id, paramtype_id, order_num) values(101, 1, 15, 11, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(102, 1, 101, 17, 1)`);
@@ -106,6 +138,16 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(504, 5, 503, 16, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(506, 5, 504, 1, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, follow_to, order_num) values(505, 5, 501, 6, 2, 501, 3)`);
+        await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(601, 6, 18, 1)`); 
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(610, 6, 601, 1, 201, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(620, 6, 601, 2, 9, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(621, 6, 620, 2, 12, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(622, 6, 620, 2, 4, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(623, 6, 620, 19, 3)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(624, 6, 623, 20, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(625, 6, 624, 1, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(626, 6, 623, 1, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, follow_to, order_num) values(630, 6, 601, 6, 2, 601, 3)`);
 
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(103, 'ru', 'Пользователь [{PLAYER}] ожидает вашего хода: {LINK}')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(103, 'en', 'User [{PLAYER}] awaits your move: {LINK}')`);
@@ -143,6 +185,20 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(506, 'en', 'Follow the link to DagazServer: {LINK}')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(505, 'ru', 'Выберите учётную запись')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(505, 'en', 'Choose an account')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(610, 'ru', 'Учётная запись не найдена')`); 
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(610, 'en', 'Account not found')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(620, 'ru', 'Введите имя:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(620, 'en', 'Enter your name:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(621, 'ru', 'Введите пароль:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(621, 'en', 'Enter Password:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(622, 'ru', 'Введите EMail:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(622, 'en', 'Enter EMail:')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(625, 'ru', 'Changes successfully saved')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(625, 'en', 'Изменения учпешно сохранены')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(626, 'ru', 'Failed to save changes')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(626, 'en', 'Не удалось сохранить изменения')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(630, 'ru', 'Выберите учётную запись')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(630, 'en', 'Choose an account')`);
 
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(1, 1, 200, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(2, 1, 400, 2)`);
@@ -150,6 +206,8 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(4, 2, 401, 2)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(5, 3, 200, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(6, 4, 200, 1)`);
+        await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(7, 5, 200, 1)`); 
+        await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(8, 5, 404, 2)`);
 
         await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(1, 1, 1, 'access_token')`);
         await queryRunner.query(`insert into response_param(id, response_id, paramtype_id, param_name) values(2, 3, 1, 'access_token')`);
@@ -162,6 +220,10 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(4, 4, '1', 1, 506)`);
         await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(5, 8, '1', 1, 103)`);
         await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(6, 9, '1', 1, 217)`);
+        await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(7, 10, '0', 1, 610)`); 
+        await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(8, 10, '1', 2, 620)`);
+        await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(9, 10, '2', 3, 630)`);
+        await queryRunner.query(`insert into db_action(id, result_id, result_value, order_num, action_id) values(10, 13, '1', 1, 625)`);
 
         await queryRunner.query(`insert into watch_type(id, name) values(1, 'Следить за игрой')`);
         await queryRunner.query(`insert into watch_type(id, name) values(2, 'Следить за игроком')`);
@@ -185,6 +247,7 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`delete from action_type`);
         await queryRunner.query(`delete from script_param`);
         await queryRunner.query(`delete from script`);
+        await queryRunner.query(`delete from clear_params`);
         await queryRunner.query(`delete from param_type`);
     }
 }

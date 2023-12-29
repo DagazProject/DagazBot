@@ -1,12 +1,12 @@
 import { HttpService, Inject, Injectable } from '@nestjs/common';
 import { users } from './entity/users';
 import { Repository } from 'typeorm';
-import { command_queue } from './entity/command_queue';
 import { user_param } from './entity/user_param';
 import { message } from './entity/message';
 import { job_data } from './entity/job_data';
 import { client_message } from './entity/client_message';
 import { common_context } from './entity/common_context';
+import { command_param } from './entity/command_param';
 
 const BOT_DEVICE = 'telegram';
 
@@ -96,17 +96,22 @@ export class AppService {
     return x[0].context_id;
   }
 
-  async addAction(username, action) {
+  async addAction(username, action, params) {
     try {
       const id = await this.getContextId(username);
-      await this.service.createQueryBuilder("command_queue")
-      .insert()
-      .into(command_queue)
-      .values({
-        context_id: id,
-        action_id: action
-      })
-      .execute();
+      const x = await this.service.query(`select addCommand($1, $2) as id`, [id, action]);
+      if (!x || x.length == 0) return;
+      for (let i = 0; i < params.length; i++) {
+        await this.service.createQueryBuilder("command_param")
+        .insert()
+        .into(command_param)
+        .values({
+          command_id: x[0].id,
+          paramtype_id: params[i].id,
+          value: params[i].value
+        })
+        .execute();
+      }
     } catch (error) {
       console.error(error);
     }
@@ -288,24 +293,24 @@ export class AppService {
        from   action a
        where  a.id = $1`, [id]);
     if (!x || x.length == 0) return null;
-    if (!isParent) {
-      const y = await this.service.query(
+    if (isParent) {
+      const z = await this.service.query(
         `select a.id
          from   action a
          where  a.script_id = $1 
          and    coalesce(a.parent_id, 0) = $2
-         and    a.order_num > $3
-         order  by a.order_num`, [x[0].script_id, x[0].parent_id, x[0].order_num]);
-      if (y && y.length > 0) return y[0].id;
+         order  by a.order_num`, [x[0].script_id, id]);
+      if (z && z.length > 0) return z[0].id;
     }
-    const z = await this.service.query(
+    const y = await this.service.query(
       `select a.id
        from   action a
        where  a.script_id = $1 
        and    coalesce(a.parent_id, 0) = $2
-       order  by a.order_num`, [x[0].script_id, id]);
-    if (!z || z.length == 0) return null;
-    return z[0].id;
+       and    a.order_num > $3
+       order  by a.order_num`, [x[0].script_id, x[0].parent_id, x[0].order_num]);
+    if (!y || y.length == 0) return null;
+    return y[0].id;
   }
 
   async setParams(): Promise<boolean> {
@@ -420,7 +425,7 @@ export class AppService {
          inner  join param_type c on (c.id = x.wait_for)
          where  a.username = $1 and not x.wait_for is null`, [username]);
       if (!x || x.length == 0) return false;
-      const action = await this.getNextAction(x[0].action_id, false);
+      const action = await this.getNextAction(x[0].action_id, true);
       await this.service.query(`select setParamValue($1, $2, $3)`, [x[0].user_id, x[0].wait_for, data]);
       if (x[0].is_hidden) {
         await del(chatId, msgId);

@@ -115,6 +115,7 @@ export class dbproc1701330484301 implements MigrationInterface {
             s text;
             u text;
             c integer;
+            lCommand integer;
           begin
             select url into strict u from server where id = pServer;
             for x in
@@ -136,10 +137,12 @@ export class dbproc1701330484301 implements MigrationInterface {
                 loop
                     s := u || ',' || x.player || ',' || x.url || ',' || x.sid;
                     insert into command_queue(context_id, action_id, data)
-                    values (z.context_id, 101, s);
-                    delete from user_param where user_id = z.user_id and type_id in (2, 3);
-                    insert into user_param(type_id, user_id, value) values (2, z.user_id, x.username);
-                    insert into user_param(type_id, user_id, value) values (3, z.user_id, z.pass);
+                    values (z.context_id, 101, s)
+                    returning id into lCommand;
+                    insert into command_param(command_id, paramtype_id, value)
+                    values(lCommand, 2, x.username);
+                    insert into command_param(command_id, paramtype_id, value)
+                    values(lCommand, 3, z.pass);
                 end loop;
                 delete from job_data where id = x.id;
             end loop;
@@ -151,6 +154,7 @@ export class dbproc1701330484301 implements MigrationInterface {
             as $$
             declare
               z record;
+              t record;
               r integer default 0;
             begin
               for z in
@@ -166,11 +170,23 @@ export class dbproc1701330484301 implements MigrationInterface {
               loop
                 update common_context set action_id = z.action_id, scheduled = now()
                 where  id = z.context_id;
-                delete from user_param where user_id = z.user_id and type_id = 8;
+                delete from user_param where user_id = z.user_id 
+                and type_id in ( select paramtype_id
+                                 from   clear_params
+                                 where  coalesce(action_id, z.action_id) = z.action_id);
                 if not z.data is null then
                    insert into user_param(type_id, user_id, value)
                    values (8, z.user_id, z.data);
                 end if;
+                for t in
+                    select paramtype_id, value
+                    from   command_param
+                    where  command_id = z.id
+                loop
+                    insert into user_param(user_id, type_id, value)
+                    values (z.user_id, t.paramtype_id, t.value);
+                end loop;
+                delete from command_param where command_id = z.id;
                 delete from command_queue where id = z.id;
                 r := r + 1;
               end loop;
@@ -375,9 +391,52 @@ export class dbproc1701330484301 implements MigrationInterface {
                 return c;
               end;
               $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function saveProfile(
+                in pUser integer,
+                in pAccount text,
+                in pServer integer
+              ) returns json
+              as $$
+              declare
+                lAccount integer;
+                r json;
+                x record;
+              begin
+                select a.id into strict lAccount
+                from   account a
+                inner  join user_param b on (b.account_id = a.id and b.type_id = 2)
+                where  a.user_id = pUser and a.server_id = pServer and a.deleted is null
+                and    pAccount = b.value;
+                delete from user_param where account_id = lAccount and type_id in (4, 3);
+                update user_param set account_id = lAccount, user_id = null where user_id = pUser and type_id = 4;
+                update user_param set account_id = lAccount, user_id = null, type_id = 3 where user_id = pUser and type_id = 12;
+                for x in
+                    select 1 as result
+                loop
+                    r := row_to_json(x);  
+                end loop;
+                return r;
+              end;
+              $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function addCommand(
+                in pContext integer,
+                in pAction integer
+              ) returns integer
+              as $$
+              declare
+                r integer;
+              begin
+                insert into command_queue(context_id, action_id) 
+                values (pContext, pAction)
+                returning id into r;
+                return r;
+              end;
+              $$ language plpgsql VOLATILE`);
         }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function addCommand(integer, integer)`);
+      await queryRunner.query(`drop function saveProfile(integer, text, integer)`);
       await queryRunner.query(`drop function saveMessage(text, bigint, text, bigint)`);
       await queryRunner.query(`drop function gameUrl(integer, integer)`);
       await queryRunner.query(`drop function setActionByNum(integer, integer, integer)`);
