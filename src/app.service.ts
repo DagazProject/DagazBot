@@ -99,6 +99,7 @@ export class AppService {
   async addAction(username, action, params) {
     try {
       const id = await this.getContextId(username);
+      await this.service.query(`select clearActivity($1)`, [id]);
       const x = await this.service.query(`select addCommand($1, $2) as id`, [id, action]);
       if (!x || x.length == 0) return;
       for (let i = 0; i < params.length; i++) {
@@ -206,7 +207,7 @@ export class AppService {
        `select a.id, a.order_num, c.message
         from   action a
         inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
-        where  a.parent_id = $2 and a.type_id = 4
+        where  a.parent_id = $2
         order  by a.order_num`, [x[i].locale, x[i].id]);
         let menu = [];
         for (let j = 0; j < y.length; j++) {

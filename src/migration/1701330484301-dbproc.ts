@@ -432,9 +432,22 @@ export class dbproc1701330484301 implements MigrationInterface {
                 return r;
               end;
               $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create or replace function clearActivity(
+                in pId integer
+              ) returns integer
+              as $$
+              begin
+                delete from command_param
+                where command_id in ( select id from command_queue where context_id = pId );
+                delete from command_queue where context_id = pId;
+                update common_context set action_id = null, wait_for = null, scheduled = null, delete_message = null
+                where id = pId;
+              end;
+              $$ language plpgsql VOLATILE`);
         }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop function clearActivity(integer)`);
       await queryRunner.query(`drop function addCommand(integer, integer)`);
       await queryRunner.query(`drop function saveProfile(integer, text, integer)`);
       await queryRunner.query(`drop function saveMessage(text, bigint, text, bigint)`);
