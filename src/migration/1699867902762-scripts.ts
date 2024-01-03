@@ -14,6 +14,7 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into param_type(id, name) values(9, 'PLAYER')`);
         await queryRunner.query(`insert into param_type(id, name) values(11, 'LINK')`);
         await queryRunner.query(`insert into param_type(id, name, is_hidden) values(12, 'Новый пароль', true)`); 
+        await queryRunner.query(`insert into param_type(id, name) values(13, 'WIDTH')`);
 
         await queryRunner.query(`insert into clear_params(id, paramtype_id) values(1, 8)`); 
         await queryRunner.query(`insert into clear_params(id, paramtype_id) values(2, 2)`);
@@ -214,6 +215,8 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(704, 'en', 'ru')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(705, 'ru', 'Язык сконфигурирован: Русский')`);
 
+        await queryRunner.query(`insert into action_param(id, type_id, action_id, value) values(1, 13, 701, 3)`); 
+
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(1, 1, 200, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(2, 1, 400, 2)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(3, 2, 201, 1)`);
@@ -250,6 +253,7 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`delete from db_action`);
         await queryRunner.query(`delete from response_param`);
         await queryRunner.query(`delete from response`);
+        await queryRunner.query(`delete from action_param`);
         await queryRunner.query(`delete from localized_string`);
         await queryRunner.query(`delete from action`);
         await queryRunner.query(`delete from job`);

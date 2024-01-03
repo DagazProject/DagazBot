@@ -141,10 +141,11 @@ export class AppService {
       const x = await this.service.query(
         `select a.id as user_id, b.id, a.chat_id,
                 coalesce(c.message, d.message) as message, e.value,
-                x.id as context_id
+                x.id as context_id, coalesce(p.value, 1) as width
          from   users a
          inner  join common_context x on (x.id = a.context_id)
          inner  join action b on (b.id = x.action_id and b.type_id = 6)
+         left   join action_param p on (p.action_id = b.id and p.type_id = 13)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
@@ -155,12 +156,19 @@ export class AppService {
       if (!x || x.length == 0) return false;
       for (let i = 0; i < x.length; i++) {
         const list = x[i].value.split(/,/);
-        let menu = [];
+        let menu = []; let row = [];
         for (let j = 0; j < list.length; j++) {
-            menu.push([{
+            if (row.length >= x[i].width) {
+               menu.push(row);
+               row = [];
+            }
+            row.push({
               text: list[j],
               callback_data: list[j]
-            }]);
+            });
+         }
+         if (row.length > 0) {
+            menu.push(row);
          }
          let msg = null;
          if (menu.length > 0) {
@@ -191,10 +199,11 @@ export class AppService {
         `select a.id as user_id, b.id, a.chat_id,
                 coalesce(c.message, d.message) as message,
                 coalesce(c.locale, d.locale) as locale,
-                x.id as context_id
+                x.id as context_id, coalesce(p.value, 1) as width
          from   users a
          inner  join common_context x on (x.id = a.context_id)
          inner  join action b on (b.id = x.action_id and b.type_id = 3)
+         left   join action_param p on (p.action_id = b.id and p.type_id = 13)
          left   join user_param u on (u.user_id = a.id and u.type_id = 7)
          left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
          inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
@@ -209,12 +218,19 @@ export class AppService {
         inner  join localized_string c on (c.action_id = a.id and c.locale = $1)
         where  a.parent_id = $2
         order  by a.order_num`, [x[i].locale, x[i].id]);
-        let menu = [];
+        let menu = []; let row = [];
         for (let j = 0; j < y.length; j++) {
-            menu.push([{
-               text: y[j].message,
-               callback_data: y[j].id
-            }]);
+            if (row.length >= x[i].width) {
+               menu.push(row);
+               row = [];
+            }
+            row.push({
+              text: y[j].message,
+              callback_data: y[j].id
+            });
+        }
+        if (row.length > 0) {
+          menu.push(row);
         }
         let msg = null;
         if (menu.length > 0) {
