@@ -142,10 +142,6 @@ export class AppModule {
               return;
             }
         }
-        if (await self.appService.saveParam(msg.from.username ? msg.from.username : msg.from.id, msg.text, chatId, msg.message_id, self.deleteMessage)) {
-            await run();
-            return;
-        }
         if (cmd !== null) {
             for (let i = 0; i < commands.length; i++) {
                 if (commands[i].name == cmd) {
@@ -163,6 +159,10 @@ export class AppModule {
                     return;
                 }
             }
+        }
+        if (await self.appService.saveParam(msg.from.username ? msg.from.username : msg.from.id, msg.text, chatId, msg.message_id, self.deleteMessage)) {
+          await run();
+          return;
         }
         await self.appService.saveMessage(msg.from.username ? msg.from.username : msg.from.id, msg.message_id, msg.text, msg.reply_to_message);
       } catch (error) {

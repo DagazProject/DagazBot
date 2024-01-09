@@ -442,6 +442,7 @@ export class dbproc1701330484301 implements MigrationInterface {
                 delete from command_queue where context_id = pId;
                 update common_context set action_id = null, wait_for = null, scheduled = null, delete_message = null
                 where id = pId;
+                return 1;
               end;
               $$ language plpgsql VOLATILE`);
         }
