@@ -140,7 +140,11 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(504, 5, 503, 16, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(506, 5, 504, 1, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, follow_to, order_num) values(505, 5, 501, 6, 2, 501, 3)`);
-        await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(601, 6, 18, 1)`); 
+        await queryRunner.query(`insert into action(id, script_id, type_id, order_num) values(640, 6, 3, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(641, 6, 640, 4, 2)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(642, 6, 641, 1, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(643, 6, 640, 4, 1)`);
+        await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, order_num) values(601, 6, 643, 18, 1)`); 
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, follow_to, order_num) values(610, 6, 601, 1, 201, 1)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(620, 6, 601, 2, 9, 2)`);
         await queryRunner.query(`insert into action(id, script_id, parent_id, type_id, paramtype_id, order_num) values(621, 6, 620, 2, 12, 1)`);
@@ -214,8 +218,17 @@ export class scripts1699867902762 implements MigrationInterface {
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(704, 'ru', 'ru')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(704, 'en', 'ru')`);
         await queryRunner.query(`insert into localized_string(action_id, locale, message) values(705, 'ru', 'Язык сконфигурирован: Русский')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(640, 'ru', 'Вы действительно хотите редактировать настройки профиля?')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(640, 'en', 'Are you sure you want to edit your profile settings?')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(641, 'ru', 'Нет')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(641, 'en', 'No')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(642, 'ru', 'Редактирование профиля отменено')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(642, 'en', 'Profile editing canceled')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(643, 'ru', 'Да')`);
+        await queryRunner.query(`insert into localized_string(action_id, locale, message) values(643, 'en', 'Yes')`);
 
         await queryRunner.query(`insert into action_param(id, type_id, action_id, value) values(1, 13, 701, 3)`); 
+        await queryRunner.query(`insert into action_param(id, type_id, action_id, value) values(2, 13, 640, 2)`); 
 
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(1, 1, 200, 1)`);
         await queryRunner.query(`insert into response(id, request_id, result_code, order_num) values(2, 1, 400, 2)`);
