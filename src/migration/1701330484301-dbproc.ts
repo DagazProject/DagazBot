@@ -445,9 +445,131 @@ export class dbproc1701330484301 implements MigrationInterface {
                 return 1;
               end;
               $$ language plpgsql VOLATILE`);
+              await queryRunner.query(`create view server_token as
+                select a.id, b.value as token
+                from   server a
+                inner  join server_option b on (b.server_id = a.id)
+                where  a.type_id = 1`);
+              await queryRunner.query(`create view command_list as
+                select x.command, x.action_id, x.script_id, x.name
+                from ( select a.command, b.id as action_id, a.id as script_id, a.name,
+                              row_number() over (partition by a.id order by b.order_num) rn
+                       from   script a
+                       inner  join action b on (b.script_id = a.id and b.parent_id is null)
+                       where  not a.command is null ) x
+                where  x.rn = 1`);
+              await queryRunner.query(`create view virtual_menu as
+                select a.id as user_id, b.id, a.chat_id,
+                       coalesce(c.message, d.message) as message, e.value,
+                       x.id as context_id, coalesce(p.value, 1) as width,
+                       x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id and b.type_id = 6)
+                left   join action_param p on (p.action_id = b.id and p.type_id = 13)
+                left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+                left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+                inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+                inner  join user_param e on (e.user_id = a.id and e.type_id = b.paramtype_id)
+                where  x.scheduled < now()`);
+              await queryRunner.query(`create view static_menu as
+                select a.id as user_id, b.id, a.chat_id,
+                       coalesce(c.message, d.message) as message,
+                       coalesce(c.locale, d.locale) as locale,
+                       x.id as context_id, coalesce(p.value, 1) as width,
+                       x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id and b.type_id = 3)
+                left   join action_param p on (p.action_id = b.id and p.type_id = 13)
+                left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+                left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+                inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+                where  x.scheduled < now()`);
+              await queryRunner.query(`create view user_action as
+                select a.id, b.paramtype_id, b.follow_to, x.delete_message,
+                       x.id as context_id, a.username
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                left   join action b on (b.id = x.action_id and b.type_id = 6)`);
+              await queryRunner.query(`create view info_list as
+                select a.chat_id, b.id, coalesce(c.message, d.message) as message, 
+                       b.follow_to, a.id as user_id, e.value as data,
+                       x.id as context_id, x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id and b.type_id = 1)
+                left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+                left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+                left   join localized_string d on (d.action_id = b.id and d.locale = 'en')
+                left   join user_param e on (e.user_id = a.id and e.type_id = b.paramtype_id)
+                where  x.scheduled < now()`);
+              await queryRunner.query(`create view param_list as
+                select a.chat_id, a.id, b.paramtype_id, coalesce(c.message, d.message) as message,
+                       x.id as context_id, x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id and b.type_id = 2)
+                left   join user_param u on (u.user_id = a.id and u.type_id = 7)
+                left   join localized_string c on (c.action_id = b.id and c.locale = u.value)
+                inner  join localized_string d on (d.action_id = b.id and d.locale = 'en')
+                where  x.scheduled < now() and x.wait_for is null`);
+              await queryRunner.query(`create view param_action as
+                select a.id as user_id, x.wait_for, b.id, x.action_id, c.is_hidden,
+                       x.id as context_id, a.username
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                left   join user_param b on (b.user_id = a.id and b.type_id = x.wait_for)
+                inner  join param_type c on (c.id = x.wait_for)
+                where  not x.wait_for is null`);
+              await queryRunner.query(`create view message_list as
+                select a.id, a.send_to, a.locale, a.data, b.is_admin, a.reply_for, a.scheduled
+                from   message a
+                left   join users b on (b.id = a.user_id)
+                where  a.scheduled < now()`);
+              await queryRunner.query(`create view http_list as
+                select a.id as user_id, d.id as request_id, b.id as action_id, d.request_type,
+                       e.api || d.url as url, x.id as context_id,
+                       x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id)
+                inner  join action_type c on (c.id = b.type_id)
+                inner  join request d on (d.actiontype_id = c.id)
+                inner  join server e on (e.id = d.server_id)
+                where  x.scheduled < now()`);
+              await queryRunner.query(`create view db_list as
+                select a.id as user_id, d.id as proc_id, b.id as action_id, 
+                       d.name as proc_name, a.username as user_name,
+                       x.id as context_id,
+                       x.scheduled
+                from   users a
+                inner  join common_context x on (x.id = a.context_id)
+                inner  join action b on (b.id = x.action_id)
+                inner  join action_type c on (c.id = b.type_id)
+                inner  join dbproc d on (d.actiontype_id = c.id)
+                where  x.scheduled < now()`);
+              await queryRunner.query(`create view job_list as
+                select a.id, b.request_type, d.api || b.url as url, c.name, d.id as server_id
+                from   job a
+                inner  join request b on (b.id = a.request_id)
+                inner  join dbproc c on (c.id = a.proc_id)
+                inner  join server d on (d.id = b.server_id)`);
         }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
+      await queryRunner.query(`drop view job_list`);
+      await queryRunner.query(`drop view db_list`);
+      await queryRunner.query(`drop view http_list`);
+      await queryRunner.query(`drop view message_list`);
+      await queryRunner.query(`drop view param_action`);
+      await queryRunner.query(`drop view param_list`);
+      await queryRunner.query(`drop view info_list`);
+      await queryRunner.query(`drop view user_action`);
+      await queryRunner.query(`drop view static_menu`);
+      await queryRunner.query(`drop view virtual_menu`);
+      await queryRunner.query(`drop view command_list`);
+      await queryRunner.query(`drop view server_token`);
       await queryRunner.query(`drop function clearActivity(integer)`);
       await queryRunner.query(`drop function addCommand(integer, integer)`);
       await queryRunner.query(`drop function saveProfile(integer, text, integer)`);
